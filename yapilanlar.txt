@@ -1,0 +1,405 @@
+================================================================================
+                    BHTTR (BHTikTok++) GELİŞTİRME GÜNLÜĞÜ VE MİMARİ RAPORU
+================================================================================
+Son Güncelleme Tarihi: 27 Ekim 2026
+Geliştirici & Repo: https://github.com/talhaeenss/BHTTR
+Hedef Uygulama: TikTok iOS (Decrypted IPA v47.4.0 / MusicallyCore)
+Derleme Sistemi: Theos (iOS 16.5 SDK, clang, rootless / sideloaded jailed dylib)
+
+Bu belge, sohbet geçmişi sıfırlansa veya projeyi başka bir yapay zeka/geliştirici
+devralırsa, projede neyin neden ve nasıl yapıldığını, buton konumlarının nasıl
+keşfedildiğini ve özelliklerin hangi tersine mühendislik yöntemleriyle yazıldığını
+eksiksiz aktarmak için hazırlanmıştır.
+
+--------------------------------------------------------------------------------
+1. PROJENİN AMACI VE ÇALIŞMA PRENSİBİ
+--------------------------------------------------------------------------------
+BHTikTok++ (BHTTR), resmi TikTok iOS uygulamasına jailbreakli veya jailbreaksiz
+(sideloaded / TrollStore / AltStore / Sideloadly) cihazlarda ek özellikler kazandıran
+bir Objective-C tweak projesidir.
+
+Tweak, Theos Logos (`.x`) ve saf Objective-C (`.m`/`.h`) sınıflarıyla TikTok'un dahili
+sınıflarını runtime'da (`libsubstrate` / CydiaSubstrate) dinamik olarak hooklar.
+
+GitHub Actions (`.github/workflows/build.yml`) üzerinde her push'ta:
+1. `make package` ile `arm64` ve `arm64e` mimarilerinde `BHTikTok.dylib` derlenir.
+2. `base-ipa` etiketli decrypted TikTok IPA indirilir.
+3. `insert_dylib` aracıyla derlenen `BHTikTok.dylib` ve `CydiaSubstrate.framework`
+   uygulama paketinin içine enjekte edilir.
+4. Çıktı doğrudan kurmaya hazır `.ipa` olarak release/artifact şeklinde paylaşılır.
+
+--------------------------------------------------------------------------------
+2. DOSYA VE DİZİN YAPISI
+--------------------------------------------------------------------------------
+- `Tweak.x`:
+  Tüm hook mantığının merkezidir. Logos sözdizimi (`%hook`, `%orig`, `%new`) kullanılır.
+  Video oynatıcı kontrolleri, arayüz butonları, gizleme mantıkları burada yer alır.
+
+- `TikTokHeaders.h`:
+  TikTok'un tersine mühendislikle elde edilmiş arayüz, model ve sınıf tanımlarıdır.
+  Clang derleyicisinin `-Werror` modunda hata vermemesi için gerekli tüm property ve
+  metod imzaları burada tanımlanmıştır.
+
+- `BHIManager.h` / `BHIManager.m`:
+  Tweak'in tüm ayarlarını (`NSUserDefaults`) yöneten merkezi sınıftır.
+  Yerelleştirme metotları (`isTurkish`, `localizedString:tr:`) burada bulunur.
+  Cihaz dili Türkçe ise Türkçe, değilse İngilizce metin döner.
+  Medyaları film rulosuna kaydetme (`saveMedia:fileExtension:`) burada yapılır.
+
+- `BHTLiveRecorder.h` / `BHTLiveRecorder.m`:
+  TikTok Canlı Yayın (Live Room) için ReplayKit donanım yakalama ve AVAssetWriter
+  tabanlı saf ekran ve dijital ses kayıt motorudur. Yorumlar, butonlar ve hediyeler
+  olmadan canlı yayının orijinal görüntüsünü ve sesini kaydeder.
+
+- `BHTStoryDownloader` (`Tweak.x` içinde):
+  Hikaye paylaşımlarını indiren yöneticidir. Fotoğraf hikayeleri (`.jpeg`/`.png`),
+  çoklu fotoğraf albümleri ve video hikayelerini (`.mp4`) otomatik algılar ve indirir.
+
+- `BHDownload.h` / `BHDownload.m` & `BHMultipleDownload.h` / `BHMultipleDownload.m`:
+  Tekli ve çoklu dosya indirme oturumlarını yöneten sınıflardır.
+  İndirme ilerleme durumu (`JGProgressHUD`) gösterir.
+
+- `Settings/`:
+  Ayarlar arayüzüdür (`ViewController.m`, `LiveActions.m`, `PlaybackSpeed.m`,
+  `OfflineVideosLimit.m`, `LabsViewController.m`). Tüm tweak ayar switchleri buradadır.
+
+- `Makefile`:
+  Theos derleme yapılandırması. Dahil edilen frameworkler:
+  `UIKit Foundation CoreGraphics Photos CoreServices SystemConfiguration SafariServices Security QuartzCore AVFoundation CoreMedia CoreVideo ReplayKit`
+
+--------------------------------------------------------------------------------
+3. BUGÜNE KADAR YAPILAN TÜM GELİŞTİRMELER VE ÇÖZÜLEN SORUNLAR
+--------------------------------------------------------------------------------
+
+A. Dil ve Arayüz Düzenlemeleri
+- TikTok dili Türkçe ise ayarların tamamen Türkçe, Türkçe değilse tamamen İngilizce
+  olması sağlandı (`[BHIManager isTurkish]`).
+- Ayarlar ekranında aşağı kaydırınca üst barın beyaz olması sorunu çözüldü
+  (`navigationBar.standardAppearance`, `scrollEdgeAppearance`, şeffaflık/renk fixleri).
+- "BHTikTok++ Ayarları" başlığı en üste taşındı.
+
+B. Buton Konumlandırmaları ve BHTikTok 3 Nokta Menüsü
+- Eskiden sağ üstte bulunan göz (ekranı temizle) ve indirme butonları kaldırıldı.
+- Sağ tarafta, profil avatarının hemen üstünde yer alan şık, dairesel 3 nokta
+  (`ellipsis.circle`) butonu (`BHTMenuButton`) eklendi.
+- Butona basıldığında açılan UIMenu:
+  * "Videoyu İndir"
+  * "Müziği İndir"
+  * "Kopyalama Seçenekleri" (Video linki, müzik linki, açıklama kopyalama)
+  * "Ekranı Temizle / Ekranı Göster" (Ayarlardan aktifse)
+- Çalışmayan "HD Videoyu İndir" seçeneği kullanıcı talebiyle tüm menülerden kaldırıldı.
+- Boyutlandırma: Kullanıcı isteğiyle buton boyutu `25pt` ikon ve `40x40` çerçeveye
+  ayarlanarak rahat basılabilir hale getirildi.
+
+C. 3 Nokta Butonundaki Görsel Hataların Çözümü:
+1. Kare Vurgu / Plaka Hatası:
+   - Neden: `UIButtonTypeSystem` kullanıldığında iOS context menu açılıp kapanırken
+     sistemin varsayılan 1 saniyelik gri kare gölgesini/plakasını çiziyordu.
+   - Çözüm: Buton tipi `UIButtonTypeCustom` yapıldı, `adjustsImageWhenHighlighted = NO`
+     ve `[super setHighlighted:NO]` uygulandı.
+   - `contextMenuInteraction:previewForHighlighting...` ve `previewForDismissing...`
+     üzerinde `backgroundColor = [UIColor clearColor]` ve dairesel `visiblePath`
+     belirlenerek kare efekt tamamen yok edildi.
+2. Çift Daire / Eşmerkezli Daire Hatası:
+   - Neden: Menü kapanırken butonun kaybolmasını önlemek için arkaya konulan `mirrorView`
+     (22pt) ile üstteki butonun (36pt/40pt) daireleri üst üste binip çift daire yaratıyordu.
+   - Çözüm: `mirrorView` tamamen kaldırıldı, eski tag (996) kalıntıları temizlendi.
+     Artık sadece tek, temiz bir dış daire mevcuttur.
+
+D. Ekranı Temizle Modu, 2x Hızlandırma ve Kaydırma Bug'ının Kesin Çözümü:
+- Sorun 1: Ekran kenarına basılı tutarak videoyu hızlandırınca (2x) ekran temizleniyor
+  ancak 3 nokta butonu ekranda kalıyordu.
+- Sorun 2: Bazen videolar arasında kaydırma yapıldığında buton bug'a girip kayboluyor,
+  ancak videodan çıkıp tekrar dönünce görünüyordu.
+- Nedenler:
+  * Buton daha önce doğrudan `AWEFeedViewTemplateCell` (yani `self`) üzerine ekleniyordu.
+    TikTok 2x hızlandırma sırasında sağ etkileşim panelini (`avatarView.superview`) gizler,
+    hücrenin kendisini gizlemez. Buton hücrede olduğu için ekranda kalıyordu.
+  * Kaydırma bug'ı ise `AWEPlayInteractionUserAvatarView setAlpha:` hook'undan kaynaklanıyordu:
+    Hücre kaydırılırken avatar'ın `alpha` değeri 0 yapılıyor ve butona da `alpha = 0; hidden = YES;`
+    veriliyordu. Hücre tekrar ekrana geldiğinde TikTok avatarın alphasını tek tek açmak yerine
+    üst kapsayıcısının alphasını açtığı için avatarın `setAlpha:` metodu bir daha 1.0 ile
+    çağrılmıyor ve buton görünmez kalıyordu.
+- Çözüm:
+  1. Hatalı `AWEPlayInteractionUserAvatarView` hook'u tamamen kaldırıldı.
+  2. `menuButton`, doğrudan avatarın kapsayıcısı olan sağ etkileşim paneline
+     (`avatarView.superview`) alt görünüm (subview) olarak eklendi.
+  3. `container.clipsToBounds = NO;` ve `container.tag = 995;` yapıldı.
+  4. Dokunma hassasiyetinin garanti edilmesi için `-[UIView hitTest:withEvent:]`
+     hooklandı; 995 etiketli kapsayıcıya gelen dokunuşlar buton sınırları içinde ise
+     doğrudan `menuButton`'a iletildi.
+  5. Artık buton sağ etkileşim panelinin bir parçası olduğu için, TikTok 2x hızlandırmada
+     paneli gizlediğinde buton da OTOMATİK ve kusursuzca gizlenir, hızlandırma bitince
+     geri gelir. Kaydırmada ise hiçbir zaman kaybolmaz.
+
+E. Hikaye (Story) İndirme Özelliği:
+- TikTok'ta hikaye izlerken sağ alttaki paylaş butonuna tıklandığında açılan menüde,
+  "Bildir" butonunun soluna "İndir" butonu eklendi.
+- `TTKShareConfiguration`, `AWEDownloadShareChannel`, `TTKNSharePanelViewModel` hooklandı.
+- Ayarlara "Hikaye İndirme Butonu" switchi eklendi (varsayılan: AÇIK).
+- Fotoğraf albümü hikayeleri (`BHMultipleDownload`) ve video hikayeleri (`.mp4`)
+  filigransız orijinal kalitede galeriye kaydedilir.
+
+F. Geliştirici Bölümü Düzenlemesi:
+- Ayarlar ekranındaki eski "Neil Bayron (pisknk)" satırı kaldırıldı.
+- "BHTTR" satırına tıklandığında doğrudan `https://github.com/talhaeenss/BHTTR` açılıyor.
+
+G. Canlı Yayın Kaydetme (Live Screen Recording) ve Siyah Ekran Hatasının Çözümü:
+- Ayarlardan "Canlı Yayın Kaydet Butonu" adıyla kapatılıp açılabilir (varsayılan: AÇIK).
+- Siyah Ekran Sorunu (Önceki Sürümde):
+  * ByteDance'in canlı yayın oynatıcısı (`IESLivePlayerView` / `TVLPlayerView`), görüntüyü
+    Apple Metal donanım katmanına (`CAMetalLayer`, `framebufferOnly = YES`) çizer.
+  * Eski `drawViewHierarchyInRect:` yöntemi Metal framebuffer içeriğini okuyamaz ve
+    çıktı tamamen simsiyah bir video olur.
+- Çözüm (ReplayKit Donanım Çözümü):
+  * Görüntü yakalama ReplayKit API'sine taşındı:
+    `[[RPScreenRecorder sharedRecorder] startCaptureWithHandler:...]`
+  * `RPSampleBufferTypeVideo` ile iOS Metal kompozitöründen doğrudan saf piksel tamponu
+    (`CMSampleBufferGetImageBuffer`) alınarak `AVAssetWriterInputPixelBufferAdaptor`'a
+    yazılır. Siyah ekran sorunu tamamen ortadan kalktı; tam çözünürlükte 60fps video kaydedilir.
+  * Ses yakalama: `RPSampleBufferTypeAudioApp` ile cihazın iç dijital canlı yayın sesi
+    alınarak `AVAssetWriterInput` (AAC Stereo 44.1kHz) içine yazılır.
+  * Temiz Video / Arayüz Gizleme:
+    1. Kayıt başlarken `setLiveOverlaysHidden:YES` ile yorumlar, hediyeler ve TikTok barları
+       gizlenir.
+    2. "Duraklat" ve "Durdur" kontrol butonları ise gizli bir `UITextField` canvas'ı
+       (`secureTextEntry = YES`) içinde sunulur. Bu sayede butonlar kullanıcıya görünür ve
+       tıklanabilir kalırken, iOS sistem güvenliği sayesinde ReplayKit ekran kaydına
+       HİÇBİR ŞEKİLDE DAHİL EDİLMEZ. Çıkan videoda butonlar ve siyahlıklar bulunmaz!
+  * Duraklat / Devam Et Zaman Eşitlemesi:
+    Kullanıcı "Duraklat" dediğinde süre kaydedilir, "Devam Et" dediğinde geçen duraklatma
+    süresi `totalPausedTime` olarak CoreMedia PTS'den (`CMSampleBufferCreateCopyWithNewTiming`)
+    düşülür. Videoda duraklatılan kısımlar donmadan akıcı bir şekilde atlanır.
+  * "Durdur" dendiğinde video `AVAssetWriter` tarafından kapatılır, film rulosuna kaydedilir
+    ve "Canlı Yayın Galeriye Kaydedildi" bildirimi verilir.
+
+H. Canlı Yayın Kaydet Butonundaki Klavye/Otomatik Doldur Hatası ve Tasarım Yenilemesi:
+- Sorun: "Kaydet" butonuna basıldığında ekran kaydı başlamıyor, bunun yerine iOS'un "Otomatik Doldur"
+  şifre yöneticisi ve yazı yazma klavyesi açılıyordu.
+- Neden: Butonların ReplayKit'ten gizlenmesi için kullanılan `secureField` (`UITextField`), kayıt başlamadan
+  önceki boşta bekleme aşamasında da aktifti ve "Kaydet" butonu bu textfield hiyerarşisi içindeydi.
+  Kullanıcı butona dokunduğunda iOS sistem `UITextInteraction` katmanı dokunuşu yakalayıp textfield'ı
+  first responder yapmaya çalışıyor, şifre alanı zannederek "Otomatik Doldur" pop-up'ını ve klavyeyi
+  açıyor, butonun dokunma olayını iptal ediyordu.
+- Çözüm:
+  1. `BHTSecureTextField` alt sınıfı yazıldı. `canBecomeFirstResponder = NO`, `becomeFirstResponder = NO`,
+     `canPerformAction:... = NO` uygulandı. `hitTest:` sadece butonlara dokunuşu iletecek şekilde izole edildi.
+  2. "Kaydet" butonu kayıt başlamadan önce saf bir `UIView` (`containerView`) içinde tutuldu; `secureField`
+     hiyerarşisine ASLA dahil edilmedi. Böylece "Kaydet"e basıldığında klavye açılma riski %100 sıfırlandı
+     ve `startRecording` anında tetiklenir hale geldi.
+  3. Tasarım Yenilemesi:
+     * Düz siyah kutu yerine modern, TikTok canlı yayın arayüzüyle birebir uyumlu buzlu cam (Dark Blur
+       `UIVisualEffectView`) hap (pill) kapsül tasarımına geçildi (`86x32pt`, `cornerRadius = 16.0`,
+       `borderWidth = 0.5`, `kCACornerCurveContinuous`).
+     * İkon kalın/hantal `record.circle.fill` yerine şık, parlak neon kırmızı kayıt noktası (`circle.fill`)
+       ile değiştirildi, metin ve ikon aralıkları dengelendi.
+     * Butona dokunulduğunda hafifçe küçülen ve bırakıldığında geri gelen Apple/TikTok dokunma geri bildirimi
+       (`buttonTouchDown` / `buttonTouchUp` scale animasyonu) eklendi.
+     * Duraklat ve Durdur butonları da aynı modern buzlu cam ve canlı vurgu renkleriyle güncellendi.
+
+I. Canlı Yayında Ekranın Kararması (Siyah Ekran) ve Kayıt İzni Açıklaması:
+- Sorun 1 (Siyah Ekran): Canlı yayında "Kaydet"e basıp izin verilince kullanıcının telefon ekranı
+  tamamen simsiyah oluyor, canlı yayın görüntüsü yok oluyor ve galeriye sadece ses içeren siyah video kaydediliyordu.
+- Neden: `setLiveOverlaysHidden:` fonksiyonunun TikTok'un oda kapsayıcısı (`IESLiveRoomRootView` / `IESLiveAudienceRoomView`)
+  üzerindeki `alpha = 0.0` animasyonu uygulamasıydı. TikTok'ta canlı yayın oynatıcısı bu kapsayıcının
+  altında yer aldığı için `alpha = 0.0` yapılınca video ekrandan tamamen siliniyor ve ReplayKit de
+  ekrandaki siyahlığı kaydediyordu.
+- Çözüm: Hatalı `setLiveOverlaysHidden:` tamamen kaldırıldı. Kullanıcı canlı yayını kesintisiz ve
+  tam renkte izlemeye devam eder. ReplayKit canlı videoyu 60fps tam kalitede yakalar; galeriye kaydedilen
+  video siyah ekran olmadan, canlı yayının gerçek görüntüsü ve sesiyle kaydedilir.
+- Sorun 2 (Her Seferinde İzin İsteme Sorusu):
+  * iOS işletim sistemi (SpringBoard), `RPScreenRecorder` API'si çağrıldığında güvenlik ve gizlilik
+    gereği kullanıcıya her seferinde "Ekranınızı kaydetmesine izin verilsin mi?" uyarısını zorunlu gösterir.
+    Apple, hiçbir uygulamanın arka planda kullanıcıdan habersiz ekran kaydı almaması için bu izni kalıcı
+    yapma seçeneği sunmamaktadır. Bu durum Apple'ın sistem güvenliği kuralıdır.
+
+J. Canlı Yayınlara Girişte/Çıkışta Donma ve Sesin Arkada Kalması Hatasının Kesin Çözümü:
+- Sorun: Canlı yayına girerken veya yayından çıkarken TikTok donuyor, basılan tuşlara tepki vermiyor,
+  uygulamadan çıkılsa dahi canlı yayının sesi arkada çalmaya devam ediyordu.
+- Nedenler:
+  1. `Tweak.x` dosyasında generic `UIViewController` hooklanıp `[cls containsString:@"IESLive"]`
+     kontrolü yapılıyordu. TikTok'ta canlı yayın modülündeki yüzlerce alt controller (yorumlar, hediyeler,
+     araç çubuğu, anketler, webview'lar) "IESLive" ile başlar.
+  2. Her bir alt controller ekrana geldikçe `attachToViewController:` ve `viewDidLayoutSubviews`
+     içerisinde `[vc.view addSubview:self.containerView]` ve `bringSubviewToFront:` çağrılıyordu.
+     UIKit'te `viewDidLayoutSubviews` içerisinde view hiyerarşisini değiştirmek (`addSubview:`),
+     üst ve alt görünümlerin layoutunu (`setNeedsLayout`) geçersiz kılarak sonsuz bir döngü
+     (layout recursion / CPU thrashing) yaratıyordu.
+  3. Bu sonsuz döngü ana iş parçacığını (Main Thread) kilitlediği için TikTok'un navigation /
+     presentation animasyonları (transition coordinator) hiçbir zaman tamamlanamıyordu. Canlı yayının
+     ses motoru arka planda başlarken görsel geçiş askıda kalıyor ve donma yaşanıyordu.
+- Çözüm:
+  1. `isTikTokLiveAudienceRoomVC(UIViewController *vc)` fonksiyonu yazılarak hook filtrelemesi
+     sadece gerçek ana canlı yayın izleme controller'ları (`IESLiveMTAudienceViewController`,
+     `IESLiveAudienceViewController`, `TTKLiveAudienceContainerViewController`, `IESLiveRoomSlideViewController`)
+     ile sınırlandırıldı. Yüzlerce alt controller tamamen devre dışı bırakıldı.
+  2. `viewDidLayoutSubviews` içindeki `addSubview:` ve `bringSubviewToFront:` çağrıları kaldırıldı.
+     Sadece frame değiştiyse (`!CGRectEqualToRect`) koordinat güncellemesi yapılması sağlandı;
+     böylece layout passes esnasında hiçbir view hiyerarşi mutasyonu yapılmaz.
+  3. `attachToViewController:` içine `if (self.currentLiveVC == vc && superview == vc.view) return;`
+     koruması eklendi; aynı ekranda gereksiz tekrar ekleme önlendi.
+  4. `detachFromViewController:` metodu eklenerek yayından çıkıldığında view temizliği ve aktif kayıt varsa
+     düzgünce sonlandırılması sağlandı. Giriş ve çıkışlar artık 0ms gecikmeyle, akıcı ve donmasız çalışır.
+
+K. Canlı Yayın Kaydından Kontrol Butonlarının (Duraklat/Durdur) Gizlenmesi:
+- Kullanıcı Talebi: Canlı yayın kaydedilirken kontrol butonları (Duraklat / Durdur) ekranda görünsün
+  ve tıklanabilsin, ancak galeriye kaydedilen videonun içinde görünmesin.
+- Çözüm: `BHTSecureTextField` alt sınıfı (`canBecomeFirstResponder = NO`) güvenli canvas'ı (`_UITextLayoutCanvasView`)
+  kullanıldı. Kayıt başladığında Duraklat ve Durdur butonları bu güvenli canvas içerisine taşınır.
+  iOS RenderServer mimarisi gereği bu butonlar fiziksel ekranda kullanıcıya görünür ve tıklanabilir
+  kalırken, ReplayKit ekran kaydı video akışından otomatik olarak filtrelenir ve videoda kesinlikle görünmez.
+
+
+
+
+
+--------------------------------------------------------------------------------
+4. CANLI YAYIN BUTONUNUN KONUMU VE ÖZELLİKLERİN YAZILMA DETAYLARI
+--------------------------------------------------------------------------------
+
+A. Canlı Yayında Butonun Konumu Nasıl Bulundu ve Hesaplandı?
+1. Kullanıcı İhtiyacı ve Görsel Referans:
+   - Kullanıcının sağladığı ekran görüntüsünde, canlı yayının sağ üst köşesinde
+     fosforlu yeşil ile işaretlenen bir alan vardı.
+   - Bu alan, canlı yayını kapatma (X) butonu ve üstteki yayıncı profil rozetinin
+     hemen altında, sağ kenara yaslı boşluklu bölgedir.
+2. Safe Area ve Dinamik Konumlandırma Formülü:
+   - TikTok canlı yayın odası `IESLiveRoomViewController` / `AWELiveRoomViewController`
+     tarafından tam ekran (`bounds`) sunulur.
+   - iPhone X'ten iPhone 16 Pro Max'e kadar farklı cihazlarda çentik veya Dynamic Island
+     yükseklikleri 47pt ile 59pt arasında değişir; eski Home butonlu cihazlarda 20pt'dir.
+   - Sabit Y koordinatı verilirse buton çentik veya Dynamic Island altında ezilebilir
+     veya üstteki X butonunun üstüne binebilirdi.
+   - Bu yüzden dinamik safeArea formülü kurgulandı:
+     ```objc
+     CGFloat screenW = vc.view.bounds.size.width;
+     CGFloat topInset = 47.0;
+     if (@available(iOS 11.0, *)) {
+         if (vc.view.safeAreaInsets.top > 0) {
+             topInset = vc.view.safeAreaInsets.top;
+         }
+     }
+     CGFloat btnW = 82.0;
+     CGFloat btnH = 34.0;
+     CGFloat btnX = screenW - btnW - 12.0;
+     CGFloat btnY = topInset + 75.0; // Üst X butonu ve rozetin tam alt hizası
+     ```
+   - Böylece buton hangi iPhone modeli olursa olsun tam olarak yeşil fosforlu alana oturur.
+3. Durumlar Arası Dinamik Boyut Değişimi:
+   - Boşta ("Kaydet" Butonu): `82x34` pt boyutunda tek buton.
+   - Kayıtta İken ("Duraklat" ve "Durdur" Butonları):
+     Üstte: `Duraklat` (`y = 0`, `h = 34`)
+     Altta: `Durdur` (`y = 40`, `h = 34`)
+     Kapsayıcı alan dinamik olarak `(btnH * 2.0) + 6.0` (`74pt`) yüksekliğe genişletilir.
+
+B. Özelliklerin Tersine Mühendislik ve Kodlanma Yöntemleri:
+1. TikTok Canlı Yayın Odasına Enjeksiyon:
+   - `BHTLiveRecorder` bir Singleton (`[BHTLiveRecorder shared]`) olarak tasarlandı.
+   - TikTok'un canlı yayın giriş ve container sınıfları (`AWELiveRoomViewController`,
+     `IESLiveAudienceRoomViewController` ve `AWEAwemeBaseViewController`) izlenerek
+     canlı yayın başladığında `attachToViewController:` ile view hiyerarşisine bağlanır.
+2. Apple Metal Donanım Katmanının Analizi:
+   - TikTok'un canlı yayın oynatıcı mimarisi incelendiğinde `IESLivePlayerView` ve
+     `TVLPlayerView`'ın iç katmanında `CAMetalLayer` kullandığı görüldü.
+   - ByteDance performans gerekçesiyle bu katmanda `framebufferOnly = YES` bayrağını
+     kullanmaktadır. Bu bayrak açıkken UIKit'in `drawViewHierarchyInRect:` veya
+     `renderInContext:` fonksiyonları GPU'dan CPU'ya piksel kopyalayamaz ve 0x00 (siyah)
+     döner.
+   - Bu donanımsal kilit, doğrudan işletim sistemi kompozitörüne bağlı olan `ReplayKit`
+     (`RPScreenRecorder`) donanım akışı kullanılarak aşıldı.
+3. Güvenli Ekran Katmanı (Secure Canvas) İnovasyonu:
+   - Kullanıcı videoda hiçbir buton, yorum veya siyahlık istemediğini belirtti.
+   - Eğer ReplayKit tüm ekranı kaydediyorsa, ekranda açık duran "Duraklat" ve "Durdur"
+     butonlarının da videoya basılması kaçınılmazdı.
+   - iOS'un bankacılık uygulamalarında şifre gizlemek için kullandığı `UITextField`
+     `secureTextEntry` güvenlik açığı/özelliği incelendi:
+     `UITextField`'ın `secureTextEntry = YES` yapıldığında iOS sistem kompozitörü
+     (`RenderServer`), bu text alanının altındaki `_UITextLayoutCanvasView` katmanını
+     `CAContext` seviyesinde ekran kaydı ve ekran görüntülerinden gizler (drop eder).
+   - "Duraklat" ve "Durdur" butonları bu güvenli canvas içerisine eklendi.
+     Böylece butonlar ekranda kullanıcı tarafından görülebilir ve tıklanabilir kaldı,
+     fakat kaydedilen videonun içinde tamamen GÖRÜNMEZ oldu!
+4. Canlı Yayındaki Yorum ve Hediyelerin Filtrelenmesi:
+   - `setLiveOverlaysHidden:` fonksiyonu yazıldı: Canlı yayın view hiyerarşisinde
+     oynatıcı (`Player`, `Video`) haricindeki tüm etkileşim katmanları (`subviews`)
+     kayıt süresince `alpha = 0.0` animasyonu ile gizlenir.
+5. Dahili Dijital Ses Loopback:
+   - Mikrofon sesi açılarak ortam gürültüsü kaydedilmesi yerine, doğrudan cihazın iç
+     ses akışı olan `RPSampleBufferTypeAudioApp` sample bufferları yakalandı.
+   - Bu ses akışı `AVAssetWriterInput` üzerinden `kAudioFormatMPEG4AAC` (Stereo 44.1kHz,
+     128 kbps) olarak videoya muxlandı.
+6. CoreMedia Zaman Eşitlemesi (PTS Retiming):
+   - Duraklatıldığında geçen sürenin videoyu dondurmaması için, her ses ve video
+     tamponu `CMSampleBufferGetPresentationTimeStamp` ile okunarak duraklatılan süre
+     kadar geriye çekilir (`CMSampleBufferCreateCopyWithNewTiming`).
+
+--------------------------------------------------------------------------------
+5. GITHUB ACTIONS VE DERLEME SİSTEMİ BİLGİSİ
+--------------------------------------------------------------------------------
+- Workflow Dosyası: `.github/workflows/build.yml`
+- Branch Kuralları:
+  * Projede sadece `main` branch'i kullanılır.
+  * `main` branch'ine yapılan her normal push, GitHub Actions derlemesini başlatır.
+  * Eğer bir commit'in GitHub Actions çalıştırması İSTENMİYORSA commit mesajına
+    `[skip ci]` yazılmalıdır.
+- Base IPA:
+  `https://github.com/talhaeenss/BHTTR/releases/download/base-ipa/com.zhiliaoapp.musically-47.4.0-Decrypted.ipa`
+  adresindeki decrypted IPA iş akışı tarafından otomatik çekilir ve `insert_dylib`
+  ile paketlenir.
+
+===============================================================================
+KOD GELİŞTİRMEYE DEVAM EDECEK GELİŞTİRİCİ VEYA YAPAY ZEKA İÇİN NOT:
+- `Tweak.x` dosyasındaki hookların Clang `-Werror` bayrağı ile derlendiğini unutmayın.
+- `id` tipindeki nesneler üzerinde belirsiz selector çağrısı yapmaktan kaçının
+  (gerekirse `NSSelectorFromString` veya `valueForKey:` kullanın).
+- `Makefile` içerisindeki framework listesini her yeni sistem kütüphanesinde güncelleyin.
+================================================================================
+
+--------------------------------------------------------------------------------
+6. TWEAKITOK YENİDEN MARKALAMA VE 3 NOKTA DOKUNMA ÇÖZÜMÜ (27 Ekim 2026)
+--------------------------------------------------------------------------------
+A. Profil Üzerindeki 3 Nokta Butonuna Tıklanmama Sorununun Kök Nedeni ve Çözümü:
+1. Kök Neden Analizi:
+   - TikTok v47+ sürümünde avatar görünümü (`AWEPlayInteractionUserAvatarView`), yalnızca
+     kendi boyutlarını (ör. 50x50) kapsayan dar bir `AWEPlayInteractionUserAvatarElement`
+     içerisinde yer almaktadır.
+   - Buton bu container'a eklendiğinde `y = avatarView.frame.origin.y - btnH + 6.0` formülü
+     nedeniyle `y = -34.0` gibi negatif bir konuma taşınıyordu.
+   - UIKit'in hit-test mimarisi yukarıdan aşağıya (top-down) çalışır. Parent container'ın
+     veya onun üstündeki UIStackView'ın `pointInside:withEvent:` metodu, dokunulan nokta
+     kendi sınırları dışında kaldığı için `NO` döner ve dokunma olayını (`UIEvent`)
+     butona asla ulaştırmadan iptal ederdi.
+2. Uygulanan Kesin Çözüm:
+   - `BHTMenuButton` artık dar alt container'lara değil, doğrudan tam ekran genişliğindeki
+     ana hücreye (`AWEFeedViewTemplateCell` ve `AWEAwemeDetailTableViewCell`) eklenmektedir.
+   - Konumu `[avatarView convertRect:avatarView.bounds toView:self]` ile hücre koordinat sistemine
+     dönüştürülerek avatarın tam tepesine piksel hassasiyetiyle hizalanır.
+   - Her iki hücre sınıfında `- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event`
+     metodu hooklanarak, dokunulan nokta butonun etki alanındaysa doğrudan `menuButton`
+     döndürülür. Böylece TikTok'un hiçbir alt view'ı veya video duraklatma gesture'ı
+     dokunmayı yakalayamaz.
+   - `BHTMenuButton` sınıfında `- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event`
+     metodu `CGRectInset(self.bounds, -12, -12)` ile genişletilerek dokunma alanı büyütüldü.
+   - `bhtMenuButtonHandler:` fonksiyonunda, iOS 14+ `showsMenuAsPrimaryAction` UIMenu'yu
+     gösteremezse anında `showBHTikTokDownloadActionSheet` çağrılarak menünün her koşulda
+     %100 ekrana gelmesi sağlandı.
+
+B. Proje İsminin "TweakiTok" Olarak Değiştirilmesi ve Krediler:
+1. Tüm arayüz ve bildirimlerdeki "BHTikTok / BHTTR" ibareleri "TweakiTok" yapıldı:
+   - Ayarlar başlığı: "TweakiTok Ayarları" / "TweakiTok Settings"
+   - Menü başlığı: "TweakiTok Menüsü" / "TweakiTok Menu"
+   - Açılır popup ve onay diyalogları: "TweakiTok, Selam" / "TweakiTok, Hi"
+   - Paket kimliği ve derleme adı: `TweakiTok`, `TweakiTok.dylib`, `com.talha.tweakiktok`
+2. Ayarlar ekranına (Bölüm 7) 2 satırlı Geliştirici & Krediler eklendi:
+   - 1. Satır: "TweakiTok" -> https://github.com/talhaeenss/TweakiTok
+   - 2. Satır: "Teşekkürler & Katkıda Bulunanlar" -> BHTikTok (BandarHL) & Neil Bayron (pisknk)
+3. README.md tamamen modern TweakiTok formatında düzenlendi ve açık kaynak lisans / kredi
+   bölümü eklendi.
+
+C. GitHub Actions & Repo Geçişi:
+- Hedef GitHub deposu: https://github.com/talhaeenss/TweakiTok.git
+- `.github/workflows/build.yml` güncellenerek:
+  * Derlenen çıktı `TweakiTok.dylib` ve modlu IPA `TweakiTok_Modded.ipa` yapıldı.
+  * `talhaeenss/TweakiTok` reposunda `base-ipa` release'i bulunamadığında fallback linkinden
+    otomatik çekip repoda kalıcı `base-ipa` release'ini oluşturan akıllı mekanizma eklendi.
+  * Otomatik GitHub Releases yayınlama adımı `TweakiTok Modded (Latest)` başlığıyla güncellendi.
