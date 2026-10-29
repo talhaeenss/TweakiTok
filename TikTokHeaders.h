@@ -587,11 +587,6 @@
 - (void)setItemSelectHandler:(void (^)(id item))handler;
 @end
 
-@interface IESLiveMTCleanScreenFragment : NSObject
-- (void)switchToCleanModeWithType:(NSInteger)type;
-- (void)switchToNormalModeWithType:(NSInteger)type;
-@end
-
 static BOOL is_iPad() {
     if ([(NSString *)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
         return YES;

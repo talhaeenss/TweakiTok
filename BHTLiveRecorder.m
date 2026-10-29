@@ -7,8 +7,6 @@
 #import "JGProgressHUD/JGProgressHUD.h"
 #import <Photos/Photos.h>
 
-extern __weak id activeCleanScreenFragment;
-
 // ============================================================================
 // BHTSecureTextField: Kayıt esnasında Sayaç, Duraklat ve Durdur butonlarını
 // ReplayKit video çıktısından tamamen gizlemek için kullanılır.
@@ -154,8 +152,9 @@ extern __weak id activeCleanScreenFragment;
         }
     }
 
-    CGFloat btnW = 72.0;
-    CGFloat btnH = 30.0;
+    // Kompakt 56x26 pt buton (sola taşmayan tam oturan kapsül)
+    CGFloat btnW = 56.0;
+    CGFloat btnH = 26.0;
     CGFloat btnX = screenW - btnW - 12.0;
     CGFloat btnY = topInset + 75.0;
 
@@ -174,7 +173,7 @@ extern __weak id activeCleanScreenFragment;
             [self stopRecording];
         }
         [self stopTimer];
-        [self restoreLiveOverlays];
+        [self restoreLiveOverlaysSafely];
         [self.containerView removeFromSuperview];
         [self.secureField removeFromSuperview];
         self.currentLiveVC = nil;
@@ -195,10 +194,10 @@ extern __weak id activeCleanScreenFragment;
         }
     }
 
-    CGFloat btnW = 72.0;
-    CGFloat btnH = 30.0;
-    CGFloat timerH = 22.0;
-    CGFloat spacing = 5.0;
+    CGFloat btnW = 56.0;
+    CGFloat btnH = 26.0;
+    CGFloat timerH = 20.0;
+    CGFloat spacing = 4.0;
     CGFloat btnX = screenW - btnW - 12.0;
     CGFloat btnY = topInset + 75.0;
 
@@ -214,6 +213,7 @@ extern __weak id activeCleanScreenFragment;
         CGRect targetFrame = CGRectMake(btnX, btnY, btnW, btnH);
         if (!CGRectEqualToRect(self.containerView.frame, targetFrame)) {
             self.containerView.frame = targetFrame;
+            self.recordButton.frame = CGRectMake(0, 0, btnW, btnH);
         }
     }
 }
@@ -223,10 +223,10 @@ extern __weak id activeCleanScreenFragment;
 - (void)setupUIInView:(UIView *)parentView {
     if (!parentView) return;
 
-    CGFloat btnW = 72.0;
-    CGFloat btnH = 30.0;
-    CGFloat timerH = 22.0;
-    CGFloat spacing = 5.0;
+    CGFloat btnW = 56.0;
+    CGFloat btnH = 26.0;
+    CGFloat timerH = 20.0;
+    CGFloat spacing = 4.0;
 
     if (!self.containerView) {
         self.containerView = [[UIView alloc] initWithFrame:CGRectZero];
@@ -235,10 +235,10 @@ extern __weak id activeCleanScreenFragment;
         self.containerView.clipsToBounds = NO;
         self.containerView.userInteractionEnabled = YES;
 
-        // 1. Kaydet Butonu ("Kaydet" / "Record") - 72x30 pt orantılı kapsül
+        // 1. Kaydet Butonu ("Kaydet" / "Record") - 56x26 pt kompakt kapsül
         self.recordButton = [UIButton buttonWithType:UIButtonTypeCustom];
         self.recordButton.tag = 8882;
-        self.recordButton.layer.cornerRadius = 15.0;
+        self.recordButton.layer.cornerRadius = 13.0;
         self.recordButton.layer.masksToBounds = YES;
         self.recordButton.layer.borderWidth = 0.5;
         self.recordButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.2].CGColor;
@@ -251,36 +251,26 @@ extern __weak id activeCleanScreenFragment;
         blurView.frame = CGRectMake(0, 0, btnW, btnH);
         blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         blurView.userInteractionEnabled = NO;
-        blurView.layer.cornerRadius = 15.0;
+        blurView.layer.cornerRadius = 13.0;
         blurView.layer.masksToBounds = YES;
         [self.recordButton insertSubview:blurView atIndex:0];
 
         self.recordButton.backgroundColor = [UIColor colorWithWhite:0.08 alpha:0.4];
-        self.recordButton.titleLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightSemibold];
+        self.recordButton.titleLabel.font = [UIFont systemFontOfSize:11.5 weight:UIFontWeightMedium];
         [self.recordButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         [self.recordButton setTitle:[BHIManager isTurkish] ? @"Kaydet" : @"Record" forState:UIControlStateNormal];
-
-        UIImage *recImg = nil;
-        if (@available(iOS 13.0, *)) {
-            UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:7.5 weight:UIImageSymbolWeightBold];
-            recImg = [[UIImage systemImageNamed:@"circle.fill"] imageWithConfiguration:config];
-        }
-        if (recImg) {
-            [self.recordButton setImage:recImg forState:UIControlStateNormal];
-            self.recordButton.tintColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
-            self.recordButton.imageEdgeInsets = UIEdgeInsetsMake(0, -3, 0, 3);
-            self.recordButton.titleEdgeInsets = UIEdgeInsetsMake(0, 3, 0, -3);
-        }
 
         [self.recordButton addTarget:self action:@selector(buttonTouchDown:) forControlEvents:UIControlEventTouchDown];
         [self.recordButton addTarget:self action:@selector(buttonTouchUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
         [self.recordButton addTarget:self action:@selector(startRecording) forControlEvents:UIControlEventTouchUpInside];
         [self.containerView addSubview:self.recordButton];
+    }
 
-        // 2. Canlı Sayaç Kapsülü (Timer: 72x22 pt)
+    if (!self.timerContainer) {
+        // 2. Canlı Sayaç Kapsülü (Timer: 56x20 pt)
         self.timerContainer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, btnW, timerH)];
         self.timerContainer.tag = 8885;
-        self.timerContainer.layer.cornerRadius = 11.0;
+        self.timerContainer.layer.cornerRadius = 10.0;
         self.timerContainer.layer.masksToBounds = YES;
         self.timerContainer.layer.borderWidth = 0.5;
         self.timerContainer.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.2].CGColor;
@@ -294,31 +284,33 @@ extern __weak id activeCleanScreenFragment;
         timerBlurView.frame = self.timerContainer.bounds;
         timerBlurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         timerBlurView.userInteractionEnabled = NO;
-        timerBlurView.layer.cornerRadius = 11.0;
+        timerBlurView.layer.cornerRadius = 10.0;
         timerBlurView.layer.masksToBounds = YES;
         [self.timerContainer insertSubview:timerBlurView atIndex:0];
 
-        self.timerDot = [[UIView alloc] initWithFrame:CGRectMake(10.0, 8.0, 6.0, 6.0)];
+        self.timerDot = [[UIView alloc] initWithFrame:CGRectMake(7.0, 7.5, 5.0, 5.0)];
         self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
-        self.timerDot.layer.cornerRadius = 3.0;
+        self.timerDot.layer.cornerRadius = 2.5;
         self.timerDot.layer.masksToBounds = YES;
         [self.timerContainer addSubview:self.timerDot];
 
-        self.timerLabel = [[UILabel alloc] initWithFrame:CGRectMake(20.0, 0, btnW - 22.0, timerH)];
+        self.timerLabel = [[UILabel alloc] initWithFrame:CGRectMake(15.0, 0, btnW - 17.0, timerH)];
         if (@available(iOS 13.0, *)) {
-            self.timerLabel.font = [UIFont monospacedDigitSystemFontOfSize:11.5 weight:UIFontWeightBold];
+            self.timerLabel.font = [UIFont monospacedDigitSystemFontOfSize:10.5 weight:UIFontWeightBold];
         } else {
-            self.timerLabel.font = [UIFont boldSystemFontOfSize:11.5];
+            self.timerLabel.font = [UIFont boldSystemFontOfSize:10.5];
         }
         self.timerLabel.textColor = [UIColor whiteColor];
         self.timerLabel.textAlignment = NSTextAlignmentLeft;
         self.timerLabel.text = @"00:00";
         [self.timerContainer addSubview:self.timerLabel];
+    }
 
-        // 3. Duraklat / Devam Et Butonu - 72x30 pt
+    if (!self.pauseButton) {
+        // 3. Duraklat / Devam Et Butonu - 56x26 pt
         self.pauseButton = [UIButton buttonWithType:UIButtonTypeCustom];
         self.pauseButton.tag = 8883;
-        self.pauseButton.layer.cornerRadius = 15.0;
+        self.pauseButton.layer.cornerRadius = 13.0;
         self.pauseButton.layer.masksToBounds = YES;
         self.pauseButton.layer.borderWidth = 0.5;
         self.pauseButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.2].CGColor;
@@ -331,37 +323,27 @@ extern __weak id activeCleanScreenFragment;
         pauseBlurView.frame = CGRectMake(0, 0, btnW, btnH);
         pauseBlurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         pauseBlurView.userInteractionEnabled = NO;
-        pauseBlurView.layer.cornerRadius = 15.0;
+        pauseBlurView.layer.cornerRadius = 13.0;
         pauseBlurView.layer.masksToBounds = YES;
         [self.pauseButton insertSubview:pauseBlurView atIndex:0];
 
         self.pauseButton.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.5];
-        self.pauseButton.titleLabel.font = [UIFont systemFontOfSize:11.5 weight:UIFontWeightSemibold];
+        self.pauseButton.titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightMedium];
         [self.pauseButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         [self.pauseButton setTitle:[BHIManager isTurkish] ? @"Duraklat" : @"Pause" forState:UIControlStateNormal];
-
-        UIImage *pauseImg = nil;
-        if (@available(iOS 13.0, *)) {
-            UIImageSymbolConfiguration *pConfig = [UIImageSymbolConfiguration configurationWithPointSize:8.5 weight:UIImageSymbolWeightBold];
-            pauseImg = [[UIImage systemImageNamed:@"pause.fill"] imageWithConfiguration:pConfig];
-        }
-        if (pauseImg) {
-            [self.pauseButton setImage:pauseImg forState:UIControlStateNormal];
-            self.pauseButton.tintColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
-            self.pauseButton.imageEdgeInsets = UIEdgeInsetsMake(0, -3, 0, 3);
-            self.pauseButton.titleEdgeInsets = UIEdgeInsetsMake(0, 3, 0, -3);
-        }
 
         [self.pauseButton addTarget:self action:@selector(buttonTouchDown:) forControlEvents:UIControlEventTouchDown];
         [self.pauseButton addTarget:self action:@selector(buttonTouchUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
         [self.pauseButton addTarget:self action:@selector(togglePauseResume) forControlEvents:UIControlEventTouchUpInside];
         self.pauseButton.hidden = YES;
+    }
 
-        // 4. Durdur Butonu - 72x30 pt
+    if (!self.stopButton) {
+        // 4. Durdur Butonu - 56x26 pt
         self.stopButton = [UIButton buttonWithType:UIButtonTypeCustom];
         self.stopButton.tag = 8884;
         self.stopButton.backgroundColor = [UIColor colorWithRed:0.92 green:0.20 blue:0.24 alpha:0.92];
-        self.stopButton.layer.cornerRadius = 15.0;
+        self.stopButton.layer.cornerRadius = 13.0;
         self.stopButton.layer.masksToBounds = YES;
         self.stopButton.layer.borderWidth = 0.5;
         self.stopButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.25].CGColor;
@@ -369,21 +351,9 @@ extern __weak id activeCleanScreenFragment;
             self.stopButton.layer.cornerCurve = kCACornerCurveContinuous;
         }
 
-        self.stopButton.titleLabel.font = [UIFont systemFontOfSize:11.5 weight:UIFontWeightSemibold];
+        self.stopButton.titleLabel.font = [UIFont systemFontOfSize:11.0 weight:UIFontWeightMedium];
         [self.stopButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
         [self.stopButton setTitle:[BHIManager isTurkish] ? @"Durdur" : @"Stop" forState:UIControlStateNormal];
-
-        UIImage *stopImg = nil;
-        if (@available(iOS 13.0, *)) {
-            UIImageSymbolConfiguration *sConfig = [UIImageSymbolConfiguration configurationWithPointSize:8.0 weight:UIImageSymbolWeightBold];
-            stopImg = [[UIImage systemImageNamed:@"stop.fill"] imageWithConfiguration:sConfig];
-        }
-        if (stopImg) {
-            [self.stopButton setImage:stopImg forState:UIControlStateNormal];
-            self.stopButton.tintColor = [UIColor whiteColor];
-            self.stopButton.imageEdgeInsets = UIEdgeInsetsMake(0, -3, 0, 3);
-            self.stopButton.titleEdgeInsets = UIEdgeInsetsMake(0, 3, 0, -3);
-        }
 
         [self.stopButton addTarget:self action:@selector(buttonTouchDown:) forControlEvents:UIControlEventTouchDown];
         [self.stopButton addTarget:self action:@selector(buttonTouchUp:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
@@ -419,15 +389,17 @@ extern __weak id activeCleanScreenFragment;
 #pragma mark - Timer Logic
 
 - (void)startTimer {
-    [self stopTimer];
-    self.elapsedSeconds = 0;
-    self.timerLabel.text = @"00:00";
-    self.timerLabel.textColor = [UIColor whiteColor];
-    self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
-    self.timerDot.alpha = 1.0;
+    @try {
+        [self stopTimer];
+        self.elapsedSeconds = 0;
+        self.timerLabel.text = @"00:00";
+        self.timerLabel.textColor = [UIColor whiteColor];
+        self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
+        self.timerDot.alpha = 1.0;
 
-    self.recordingTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(timerTick) userInfo:nil repeats:YES];
-    [[NSRunLoop mainRunLoop] addTimer:self.recordingTimer forMode:NSRunLoopCommonModes];
+        self.recordingTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(timerTick) userInfo:nil repeats:YES];
+        [[NSRunLoop mainRunLoop] addTimer:self.recordingTimer forMode:NSRunLoopCommonModes];
+    } @catch (__unused NSException *e) {}
 }
 
 - (void)timerTick {
@@ -441,24 +413,30 @@ extern __weak id activeCleanScreenFragment;
 }
 
 - (void)pauseTimer {
-    self.timerLabel.textColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
-    self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
-    self.timerDot.alpha = 1.0;
+    @try {
+        self.timerLabel.textColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
+        self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
+        self.timerDot.alpha = 1.0;
+    } @catch (__unused NSException *e) {}
 }
 
 - (void)resumeTimer {
-    self.timerLabel.textColor = [UIColor whiteColor];
-    self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
-    self.timerDot.alpha = 1.0;
+    @try {
+        self.timerLabel.textColor = [UIColor whiteColor];
+        self.timerDot.backgroundColor = [UIColor colorWithRed:1.0 green:0.22 blue:0.22 alpha:1.0];
+        self.timerDot.alpha = 1.0;
+    } @catch (__unused NSException *e) {}
 }
 
 - (void)stopTimer {
-    if (self.recordingTimer) {
-        [self.recordingTimer invalidate];
-        self.recordingTimer = nil;
-    }
-    self.elapsedSeconds = 0;
-    self.timerDot.alpha = 1.0;
+    @try {
+        if (self.recordingTimer) {
+            [self.recordingTimer invalidate];
+            self.recordingTimer = nil;
+        }
+        self.elapsedSeconds = 0;
+        self.timerDot.alpha = 1.0;
+    } @catch (__unused NSException *e) {}
 }
 
 - (NSString *)formattedTimeString:(NSInteger)totalSecs {
@@ -471,98 +449,45 @@ extern __weak id activeCleanScreenFragment;
     return [NSString stringWithFormat:@"%02ld:%02ld", (long)mins, (long)secs];
 }
 
-#pragma mark - Live Overlay Management (Clean Feed Recording)
+#pragma mark - Safe Live Overlay Management (Clean Feed Recording)
 
-- (BOOL)isPlayerRelatedView:(UIView *)view {
-    if (!view) return NO;
-    NSString *clsName = NSStringFromClass([view class]);
-    if ([clsName containsString:@"Player"] ||
-        [clsName containsString:@"Video"] ||
-        [clsName containsString:@"Metal"] ||
-        [clsName containsString:@"CAMetalLayer"] ||
-        [clsName containsString:@"Render"] ||
-        [clsName containsString:@"TTVideo"] ||
-        [clsName containsString:@"TVL"]) {
-        return YES;
-    }
-    if ([view.layer isKindOfClass:[CAMetalLayer class]] || [view.layer isKindOfClass:[AVPlayerLayer class]]) {
-        return YES;
-    }
-    for (CALayer *sublayer in view.layer.sublayers) {
-        if ([sublayer isKindOfClass:[CAMetalLayer class]] || [sublayer isKindOfClass:[AVPlayerLayer class]]) {
-            return YES;
+- (void)hideLiveOverlaysSafely {
+    @try {
+        if (!self.currentLiveVC || !self.currentLiveVC.view) return;
+        if (!self.hiddenOverlays) {
+            self.hiddenOverlays = [NSHashTable weakObjectsHashTable];
         }
-    }
-    for (UIView *sub in view.subviews) {
-        if ([self isPlayerRelatedView:sub]) {
-            return YES;
-        }
-    }
-    return NO;
-}
+        [self.hiddenOverlays removeAllObjects];
 
-- (void)triggerNativeCleanScreen:(BOOL)clean {
-    if (activeCleanScreenFragment) {
-        @try {
-            if (clean) {
-                if ([activeCleanScreenFragment respondsToSelector:@selector(switchToCleanModeWithType:)]) {
-                    [(IESLiveMTCleanScreenFragment *)activeCleanScreenFragment switchToCleanModeWithType:1];
-                }
-            } else {
-                if ([activeCleanScreenFragment respondsToSelector:@selector(switchToNormalModeWithType:)]) {
-                    [(IESLiveMTCleanScreenFragment *)activeCleanScreenFragment switchToNormalModeWithType:1];
+        // Sadece doğrudan üst seviyedeki etkileşim ve yorum konteynerlerini gizle
+        // Metal oynatıcıya ve iç hiyerarşilere kesinlikle dokunulmaz!
+        for (UIView *subview in self.currentLiveVC.view.subviews) {
+            if (subview.tag == 8880 || subview.tag == 8881 || subview == self.containerView || subview == self.secureField) {
+                continue;
+            }
+            NSString *cls = NSStringFromClass([subview class]);
+            if ([cls containsString:@"PluginLayout"] ||
+                [cls containsString:@"Interaction"] ||
+                [cls containsString:@"MessageList"] ||
+                [cls containsString:@"Comment"]) {
+                if (!subview.hidden) {
+                    subview.hidden = YES;
+                    [self.hiddenOverlays addObject:subview];
                 }
             }
-        } @catch (__unused NSException *e) {}
-    }
+        }
+    } @catch (__unused NSException *e) {}
 }
 
-- (void)hideLiveOverlays {
-    if (!self.currentLiveVC || !self.currentLiveVC.view) return;
-    if (!self.hiddenOverlays) {
-        self.hiddenOverlays = [NSHashTable weakObjectsHashTable];
-    }
-    [self.hiddenOverlays removeAllObjects];
-
-    // 1. TikTok'un dahili Temiz Ekran modunu tetikle
-    [self triggerNativeCleanScreen:YES];
-
-    // 2. Canlı yayın arayüzündeki yorum, profil, buton ve hediye katmanlarını gizle
-    // Video oynatıcı (Metal/Player) katmanına kesinlikle dokunulmaz!
-    for (UIView *subview in self.currentLiveVC.view.subviews) {
-        if (subview.tag == 8880 || subview.tag == 8881 || subview == self.containerView || subview == self.secureField) {
-            continue;
-        }
-        if ([self isPlayerRelatedView:subview]) {
-            for (UIView *innerSub in subview.subviews) {
-                if (innerSub.tag == 8880 || innerSub.tag == 8881) continue;
-                if (![self isPlayerRelatedView:innerSub]) {
-                    if (!innerSub.hidden) {
-                        innerSub.hidden = YES;
-                        [self.hiddenOverlays addObject:innerSub];
-                    }
-                }
+- (void)restoreLiveOverlaysSafely {
+    @try {
+        for (UIView *view in self.hiddenOverlays) {
+            if (view) {
+                view.hidden = NO;
             }
-            continue;
         }
-        if (!subview.hidden) {
-            subview.hidden = YES;
-            [self.hiddenOverlays addObject:subview];
-        }
-    }
-}
-
-- (void)restoreLiveOverlays {
-    // 1. TikTok Temiz Ekran modunu kapatıp normale dön
-    [self triggerNativeCleanScreen:NO];
-
-    // 2. Gizlenen tüm alt görünümleri geri getir
-    for (UIView *view in self.hiddenOverlays) {
-        if (view) {
-            view.hidden = NO;
-        }
-    }
-    [self.hiddenOverlays removeAllObjects];
+        [self.hiddenOverlays removeAllObjects];
+    } @catch (__unused NSException *e) {}
 }
 
 #pragma mark - Recording Logic
@@ -581,6 +506,8 @@ extern __weak id activeCleanScreenFragment;
         self.currentLiveVC = topMostController();
     }
     if (!self.currentLiveVC || !self.currentLiveVC.view) return;
+
+    [self setupUIInView:self.currentLiveVC.view];
 
     CGSize screenSize = [UIScreen mainScreen].bounds.size;
     CGFloat scale = [UIScreen mainScreen].scale;
@@ -654,8 +581,8 @@ extern __weak id activeCleanScreenFragment;
     self.firstFramePTS = kCMTimeZero;
     self.totalPausedTime = kCMTimeZero;
 
-    // Canlı yayındaki yorum, katıl butonu ve arayüz elemanlarını gizle
-    [self hideLiveOverlays];
+    // Yorum katmanlarını güvenli şekilde gizle (Crash korumalı)
+    [self hideLiveOverlaysSafely];
 
     // Sayaç, Duraklat ve Durdur butonlarını güvenli canvas içine alarak
     // ekranda kullanıcıya gösterirken REPLAYKIT VİDEO KAYDINDAN GİZLİYORUZ!
@@ -666,10 +593,10 @@ extern __weak id activeCleanScreenFragment;
             topInset = self.currentLiveVC.view.safeAreaInsets.top;
         }
     }
-    CGFloat btnW = 72.0;
-    CGFloat btnH = 30.0;
-    CGFloat timerH = 22.0;
-    CGFloat spacing = 5.0;
+    CGFloat btnW = 56.0;
+    CGFloat btnH = 26.0;
+    CGFloat timerH = 20.0;
+    CGFloat spacing = 4.0;
     CGFloat btnX = screenW - btnW - 12.0;
     CGFloat btnY = topInset + 75.0;
     CGFloat secureH = timerH + spacing + (btnH * 2.0) + spacing;
@@ -750,7 +677,7 @@ extern __weak id activeCleanScreenFragment;
 
 - (void)cancelRecordingCleanup {
     [self stopTimer];
-    [self restoreLiveOverlays];
+    [self restoreLiveOverlaysSafely];
     if (self.assetWriter && self.assetWriter.status == AVAssetWriterStatusWriting) {
         [self.assetWriter cancelWriting];
     }
@@ -825,18 +752,8 @@ extern __weak id activeCleanScreenFragment;
     self.pauseStartPTS = CACurrentMediaTime();
     [self pauseTimer];
 
-    [self.pauseButton setTitle:[BHIManager isTurkish] ? @"Devam Et" : @"Resume" forState:UIControlStateNormal];
+    [self.pauseButton setTitle:[BHIManager isTurkish] ? @"Devam" : @"Resume" forState:UIControlStateNormal];
     self.pauseButton.backgroundColor = [UIColor colorWithRed:0.16 green:0.68 blue:0.36 alpha:0.9];
-
-    UIImage *playImg = nil;
-    if (@available(iOS 13.0, *)) {
-        UIImageSymbolConfiguration *pConfig = [UIImageSymbolConfiguration configurationWithPointSize:8.5 weight:UIImageSymbolWeightBold];
-        playImg = [[UIImage systemImageNamed:@"play.fill"] imageWithConfiguration:pConfig];
-    }
-    if (playImg) {
-        [self.pauseButton setImage:playImg forState:UIControlStateNormal];
-        self.pauseButton.tintColor = [UIColor whiteColor];
-    }
 }
 
 - (void)resumeRecording {
@@ -857,16 +774,6 @@ extern __weak id activeCleanScreenFragment;
 
     [self.pauseButton setTitle:[BHIManager isTurkish] ? @"Duraklat" : @"Pause" forState:UIControlStateNormal];
     self.pauseButton.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.5];
-
-    UIImage *pauseImg = nil;
-    if (@available(iOS 13.0, *)) {
-        UIImageSymbolConfiguration *pConfig = [UIImageSymbolConfiguration configurationWithPointSize:8.5 weight:UIImageSymbolWeightBold];
-        pauseImg = [[UIImage systemImageNamed:@"pause.fill"] imageWithConfiguration:pConfig];
-    }
-    if (pauseImg) {
-        [self.pauseButton setImage:pauseImg forState:UIControlStateNormal];
-        self.pauseButton.tintColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
-    }
 }
 
 - (void)stopRecording {
@@ -877,7 +784,7 @@ extern __weak id activeCleanScreenFragment;
     self.isSessionStarted = NO;
 
     [self stopTimer];
-    [self restoreLiveOverlays];
+    [self restoreLiveOverlaysSafely];
 
     if (@available(iOS 11.0, *)) {
         @try {
@@ -926,7 +833,7 @@ extern __weak id activeCleanScreenFragment;
     self.isSessionStarted = NO;
 
     [self stopTimer];
-    [self restoreLiveOverlays];
+    [self restoreLiveOverlaysSafely];
 
     if (self.secureField) {
         self.secureField.hidden = YES;
@@ -941,8 +848,8 @@ extern __weak id activeCleanScreenFragment;
                 topInset = self.currentLiveVC.view.safeAreaInsets.top;
             }
         }
-        CGFloat btnW = 72.0;
-        CGFloat btnH = 30.0;
+        CGFloat btnW = 56.0;
+        CGFloat btnH = 26.0;
         CGFloat btnX = screenW - btnW - 12.0;
         CGFloat btnY = topInset + 75.0;
 
@@ -963,16 +870,6 @@ extern __weak id activeCleanScreenFragment;
 
     [self.pauseButton setTitle:[BHIManager isTurkish] ? @"Duraklat" : @"Pause" forState:UIControlStateNormal];
     self.pauseButton.backgroundColor = [UIColor colorWithWhite:0.1 alpha:0.5];
-
-    UIImage *pauseImg = nil;
-    if (@available(iOS 13.0, *)) {
-        UIImageSymbolConfiguration *pConfig = [UIImageSymbolConfiguration configurationWithPointSize:8.5 weight:UIImageSymbolWeightBold];
-        pauseImg = [[UIImage systemImageNamed:@"pause.fill"] imageWithConfiguration:pConfig];
-    }
-    if (pauseImg) {
-        [self.pauseButton setImage:pauseImg forState:UIControlStateNormal];
-        self.pauseButton.tintColor = [UIColor colorWithRed:1.0 green:0.80 blue:0.1 alpha:1.0];
-    }
 }
 
 @end
