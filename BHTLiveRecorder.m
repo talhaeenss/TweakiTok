@@ -459,21 +459,62 @@
         }
         [self.hiddenOverlays removeAllObjects];
 
-        // Sadece doğrudan üst seviyedeki etkileşim ve yorum konteynerlerini gizle
-        // Metal oynatıcıya ve iç hiyerarşilere kesinlikle dokunulmaz!
-        for (UIView *subview in self.currentLiveVC.view.subviews) {
-            if (subview.tag == 8880 || subview.tag == 8881 || subview == self.containerView || subview == self.secureField) {
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:self.currentLiveVC.view];
+        NSInteger safetyCounter = 0;
+        while (queue.count > 0 && safetyCounter < 500) {
+            safetyCounter++;
+            UIView *current = queue.firstObject;
+            [queue removeObjectAtIndex:0];
+
+            if (current.tag == 8880 || current.tag == 8881 || current.tag == 8882 || current.tag == 8883 || current.tag == 8884 || current.tag == 8885 ||
+                current == self.containerView || current == self.secureField) {
                 continue;
             }
-            NSString *cls = NSStringFromClass([subview class]);
+
+            NSString *cls = NSStringFromClass([current class]);
+
+            // Video oynatıcı (Metal / Player / VideoEngine) katmanlarına kesinlikle dokunulmaz!
+            if ([cls containsString:@"Player"] ||
+                [cls containsString:@"VideoEngine"] ||
+                [cls containsString:@"TVL"] ||
+                [cls containsString:@"Metal"]) {
+                continue;
+            }
+
+            // Canlı yayın arayüz elemanlarını tespit et:
+            // - Yorumlar ve mesaj listesi
+            // - Yayıncı profil barı ("Katıl", isim, sıralama)
+            // - Alt araç çubuğu (yorum yazma kutusu, hediye, paylaş)
+            // - Ekrana gelen hediyeler, beğeniler, çıkartmalar
+            BOOL isOverlay = NO;
             if ([cls containsString:@"PluginLayout"] ||
-                [cls containsString:@"Interaction"] ||
                 [cls containsString:@"MessageList"] ||
-                [cls containsString:@"Comment"]) {
-                if (!subview.hidden) {
-                    subview.hidden = YES;
-                    [self.hiddenOverlays addObject:subview];
+                [cls containsString:@"Comment"] ||
+                [cls containsString:@"Toolbar"] ||
+                [cls containsString:@"PublicScreen"] ||
+                [cls containsString:@"Profile"] ||
+                [cls containsString:@"BottomView"] ||
+                [cls containsString:@"TopView"] ||
+                [cls containsString:@"Gift"] ||
+                [cls containsString:@"Digg"] ||
+                [cls containsString:@"Sticker"] ||
+                [cls containsString:@"Barrage"] ||
+                [cls containsString:@"Pendant"] ||
+                [cls containsString:@"Interaction"]) {
+                isOverlay = YES;
+            }
+
+            if (isOverlay) {
+                if (!current.hidden && current.alpha > 0.0) {
+                    current.hidden = YES;
+                    [self.hiddenOverlays addObject:current];
                 }
+                // Gizlenen arayüz konteynerinin alt elemanlarına inmeye gerek yok
+                continue;
+            }
+
+            for (UIView *sub in current.subviews) {
+                [queue addObject:sub];
             }
         }
     } @catch (__unused NSException *e) {}
