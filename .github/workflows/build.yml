@@ -1,0 +1,285 @@
+name: Build TweakiTok (All Variants)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'Decrypted TikTok IPA Direct Download URL (Optional)'
+        required: false
+        type: string
+        default: 'https://github.com/talhaeenss/TweakiTok/releases/download/base-ipa-47.5.0/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa'
+      release_tag:
+        description: 'GitHub Release tag containing the base IPA (Optional, e.g. base-ipa)'
+        required: false
+        type: string
+        default: 'base-ipa-47.5.0'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: setup theos
+        run: |
+          # install theos dependencies using brew
+          brew install make ldid
+
+          # set PATH to use brew's GNU make
+          echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
+
+          # set theos environment variables
+          export THEOS=$HOME/theos
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "export PATH=$THEOS/bin:$PATH" >> $GITHUB_ENV
+
+          # clone theos
+          git clone --recursive https://github.com/theos/theos.git $THEOS
+
+          # create theos configuration file
+          mkdir -p $THEOS
+          cat > $THEOS/theos.conf << EOF
+          THEOS_PLATFORM_SDK_ROOT = $THEOS/sdks
+          EOF
+
+          # setup frameworks directory
+          mkdir -p $THEOS/lib
+
+      - name: setup ios sdk
+        run: |
+          export THEOS=$HOME/theos
+
+          # download ios 16.5 sdk using sparse checkout from official theos sdks
+          git clone --quiet -n --depth=1 --filter=tree:0 https://github.com/theos/sdks/
+          cd sdks
+          git sparse-checkout set --no-cone iPhoneOS16.5.sdk
+          git checkout
+          mkdir -p $THEOS/sdks
+          mv *.sdk $THEOS/sdks/
+          cd ..
+          rm -rf sdks
+
+          # verify sdk installation
+          ls -la $THEOS/sdks/
+          ls -la $THEOS/sdks/iPhoneOS16.5.sdk/
+
+      - name: update version from commit
+        run: |
+          cd $GITHUB_WORKSPACE
+
+          # base version is read from control (e.g. 1.7) -> 1.7.$RUN_NUMBER
+          BASE_VERSION=$(grep -i "^Version:" control | head -n 1 | cut -d' ' -f2 | tr -d '[:space:]')
+          VERSION="$BASE_VERSION.${{ github.run_number }}"
+
+          # update control file (macos uses different sed syntax)
+          sed -i '' "s/^Version: .*/Version: $VERSION/" control
+
+          # verify change
+          echo "Updated version to: $VERSION"
+          grep "^Version:" control
+
+      - name: build rootless variant (arm64 + arm64e)
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$PATH
+          cd $GITHUB_WORKSPACE
+          mkdir -p artifacts
+
+          # rootless jailbreaks (dopamine, palera1n rootless) - dylib also works with TrollFools
+          sed -i '' "s/^Architecture: .*/Architecture: iphoneos-arm64/" control
+          make package THEOS_PACKAGE_SCHEME=rootless DEBUG=0 FINALPACKAGE=1 ARCHS="arm64 arm64e" TARGET=iphone:clang:16.5:15.0
+
+          # .deb for rootless jailbreak users
+          cp packages/*_iphoneos-arm64.deb artifacts/
+
+          # raw universal (arm64+arm64e) dylib for TrollStore/TrollFools injection
+          DYLIB_PATH=$(find .theos/_ -name "TweakiTok.dylib" | head -n 1)
+          if [ ! -f "$DYLIB_PATH" ]; then
+            echo "ERROR: TweakiTok.dylib not found in .theos/_ staging dir"
+            exit 1
+          fi
+          echo "Found dylib at: $DYLIB_PATH"
+          cp "$DYLIB_PATH" artifacts/TweakiTok.dylib
+
+      - name: build rootful variant (arm64)
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$PATH
+          cd $GITHUB_WORKSPACE
+
+          make clean
+
+          # rootful jailbreaks (palera1n rootful, checkra1n)
+          sed -i '' "s/^Architecture: .*/Architecture: iphoneos-arm/" control
+          make package DEBUG=0 FINALPACKAGE=1 ARCHS="arm64" TARGET=iphone:clang:16.5:15.0
+
+          cp packages/*_iphoneos-arm.deb artifacts/
+
+      - name: build roothide variant (arm64e)
+        run: |
+          export THEOS=$HOME/theos
+          export PATH=$THEOS/bin:$PATH
+          cd $GITHUB_WORKSPACE
+
+          make clean
+
+          # real roothide scheme via the module vendored in mod/roothide
+          sed -i '' "s/^Architecture: .*/Architecture: iphoneos-arm64e/" control
+          make package THEOS_PACKAGE_SCHEME=roothide THEOS_MODULE_PATH="$GITHUB_WORKSPACE/mod" DEBUG=0 FINALPACKAGE=1 ARCHS="arm64e" TARGET=iphone:clang:16.5:15.0
+
+          cp packages/*_iphoneos-arm64e.deb artifacts/
+
+      - name: verify artifacts
+        run: |
+          cd $GITHUB_WORKSPACE
+          ls -la artifacts/
+
+          # expect exactly 4 files: 1 dylib + 3 debs (rootless / rootful / roothide)
+          FILE_COUNT=$(ls -1 artifacts/ | wc -l | tr -d ' ')
+          DEB_COUNT=$(ls -1 artifacts/*.deb 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$FILE_COUNT" -ne 4 ] || [ "$DEB_COUNT" -ne 3 ] || [ ! -f artifacts/TweakiTok.dylib ]; then
+            echo "ERROR: expected 4 artifacts (3 debs + TweakiTok.dylib), got $FILE_COUNT files ($DEB_COUNT debs)"
+            exit 1
+          fi
+          echo "All 4 artifacts present."
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweakiktok-package
+          path: artifacts/
+          retention-days: 30
+
+      - name: inject TweakiTok into IPA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ipa_working ipa_output
+          IPA_FILE=""
+          NEED_UPLOAD_BASE_RELEASE=false
+
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$RELEASE_TAG" ] && [ -z "${{ github.event.inputs.ipa_url }}" ]; then
+            RELEASE_TAG="base-ipa-47.5.0"
+          fi
+
+          # 1. Download from URL if provided
+          if [ -n "${{ github.event.inputs.ipa_url }}" ]; then
+            echo "Downloading IPA from URL..."
+            curl -L -o ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa "${{ github.event.inputs.ipa_url }}"
+            IPA_FILE="ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa"
+          # 2. Or download from GitHub Release in current repo
+          elif [ -n "$RELEASE_TAG" ]; then
+            echo "Checking GitHub Release '$RELEASE_TAG' in current repository..."
+            gh release download "$RELEASE_TAG" --pattern "*.ipa" --dir ipa_working || true
+            IPA_FOUND=$(find ipa_working -name "*.ipa" | head -n 1)
+            if [ -n "$IPA_FOUND" ]; then
+              IPA_FILE="$IPA_FOUND"
+              echo "Found base IPA in release: $IPA_FILE"
+            fi
+          fi
+
+          # 3. Fallback download from known live release
+          if [ -z "$IPA_FILE" ] || [ ! -f "$IPA_FILE" ]; then
+            echo "Downloading fallback IPA from base-ipa release asset..."
+            curl -L -o ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa "https://github.com/talhaeenss/TweakiTok/releases/download/base-ipa-47.5.0/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa" || true
+            if [ -f ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa ]; then
+              IPA_FILE="ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa"
+              NEED_UPLOAD_BASE_RELEASE=true
+            fi
+          fi
+
+          # If we downloaded via fallback and the base-ipa release doesn't exist on this repo yet, create it!
+          if [ "$NEED_UPLOAD_BASE_RELEASE" = true ]; then
+            echo "Creating base-ipa release in current repo for future instant builds..."
+            gh release create base-ipa ipa_working/com.zhiliaoapp.musically-47.5.0-Decrypted.ipa \
+              --title "Base Decrypted TikTok IPA (v47.5.0)" \
+              --notes "Base decrypted TikTok IPA (com.zhiliaoapp.musically-47.5.0-Decrypted.ipa) used for TweakiTok builds." || true
+          fi
+
+          if [ -z "$IPA_FILE" ] || [ ! -f "$IPA_FILE" ]; then
+            echo "No base IPA provided or found. Skipping IPA injection step."
+            exit 0
+          fi
+
+          echo "Compiling insert_dylib from source..."
+          git clone --depth 1 https://github.com/Tyilo/insert_dylib.git /tmp/insert_dylib
+          MAIN_C=$(find /tmp/insert_dylib -name "main.c" | head -n 1)
+          clang -O2 "$MAIN_C" -o /usr/local/bin/insert_dylib
+          chmod +x /usr/local/bin/insert_dylib
+
+          echo "Unpacking IPA..."
+          unzip -q "$IPA_FILE" -d ipa_working/extracted
+          APP_PATH=$(find ipa_working/extracted/Payload -maxdepth 1 -name "*.app" | head -n 1)
+          BINARY_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null || basename "$APP_PATH" .app)
+
+          echo "Setting up CydiaSubstrate.framework for jailed/sideloaded devices..."
+          mkdir -p /tmp/substrate_work
+          cd /tmp/substrate_work
+          curl -s -L https://apt.bingner.com/debs/1443.00/mobilesubstrate_0.9.7113_iphoneos-arm.deb -o sub.deb
+          ar -x sub.deb
+          tar -xf data.tar.lzma
+          cd "$GITHUB_WORKSPACE"
+
+          mkdir -p "$APP_PATH/Frameworks/CydiaSubstrate.framework"
+          if [ -f /tmp/substrate_work/Library/Frameworks/CydiaSubstrate.framework/Info.plist ]; then
+            cp /tmp/substrate_work/Library/Frameworks/CydiaSubstrate.framework/Info.plist "$APP_PATH/Frameworks/CydiaSubstrate.framework/"
+          fi
+          cp /tmp/substrate_work/usr/lib/libsubstrate.dylib "$APP_PATH/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"
+          chmod +x "$APP_PATH/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"
+          install_name_tool -id "@rpath/CydiaSubstrate.framework/CydiaSubstrate" "$APP_PATH/Frameworks/CydiaSubstrate.framework/CydiaSubstrate"
+
+          echo "Injecting TweakiTok.dylib into $APP_PATH/$BINARY_NAME..."
+          cp artifacts/TweakiTok.dylib "$APP_PATH/Frameworks/"
+          chmod +x "$APP_PATH/Frameworks/TweakiTok.dylib"
+          install_name_tool -id "@rpath/TweakiTok.dylib" "$APP_PATH/Frameworks/TweakiTok.dylib"
+
+          # Inject load command
+          insert_dylib --inplace --all-yes --no-strip-codesig "@rpath/TweakiTok.dylib" "$APP_PATH/$BINARY_NAME"
+          chmod +x "$APP_PATH/$BINARY_NAME"
+
+          echo "Repacking modded IPA..."
+          cd ipa_working/extracted
+          zip -qry ../../ipa_output/TweakiTok_Modded.ipa Payload
+          cd ../..
+
+          echo "Modded IPA created successfully:"
+          ls -lh ipa_output/
+
+      - name: upload modded ipa
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tweakiktok-modded-ipa
+          path: ipa_output/*.ipa
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: publish modded ipa and packages to github releases
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release_assets
+          # Collect universal dylib and jailbreak deb packages
+          cp artifacts/* release_assets/ 2>/dev/null || true
+          # Collect modded IPA if created
+          cp ipa_output/*.ipa release_assets/ 2>/dev/null || true
+
+          if [ -d release_assets ] && [ "$(ls -A release_assets)" ]; then
+            echo "Publishing all packages (.ipa, .dylib, .deb) to GitHub Releases..."
+            gh release delete latest --yes || true
+            git push --delete origin latest 2>/dev/null || true
+            gh release create latest release_assets/* \
+              --title "TweakiTok Latest Release" \
+              --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)."
+            echo "All release assets published successfully!"
+          fi
