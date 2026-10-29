@@ -459,9 +459,11 @@
         }
         [self.hiddenOverlays removeAllObjects];
 
-        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:self.currentLiveVC.view];
+        // Ekrandaki tüm canlı yayın katmanlarına erişebilmek için pencere (window) veya ana view üzerinden BFS başlatılır
+        UIView *rootView = self.currentLiveVC.view.window ?: self.currentLiveVC.view;
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:rootView];
         NSInteger safetyCounter = 0;
-        while (queue.count > 0 && safetyCounter < 500) {
+        while (queue.count > 0 && safetyCounter < 1000) {
             safetyCounter++;
             UIView *current = queue.firstObject;
             [queue removeObjectAtIndex:0];
@@ -500,7 +502,9 @@
                 [cls containsString:@"Sticker"] ||
                 [cls containsString:@"Barrage"] ||
                 [cls containsString:@"Pendant"] ||
-                [cls containsString:@"Interaction"]) {
+                [cls containsString:@"Interaction"] ||
+                [cls containsString:@"FollowGuide"] ||
+                [cls containsString:@"AnchorInfo"]) {
                 isOverlay = YES;
             }
 
