@@ -4074,6 +4074,21 @@ static inline BOOL isTikTokLiveAudienceRoomVC(UIViewController *vc) {
            [cls isEqualToString:@"IESLiveRoomSlideViewController"];
 }
 
+__weak id activeCleanScreenFragment = nil;
+
+%hook IESLiveMTCleanScreenFragment
+- (void)componentDidMount {
+    %orig;
+    activeCleanScreenFragment = self;
+}
+- (void)componentWillUnmount {
+    if (activeCleanScreenFragment == self) {
+        activeCleanScreenFragment = nil;
+    }
+    %orig;
+}
+%end
+
 %hook UIViewController
 - (void)viewDidAppear:(BOOL)animated {
     %orig;

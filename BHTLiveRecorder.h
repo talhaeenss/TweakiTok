@@ -9,6 +9,7 @@
 @property (nonatomic, assign, readonly) BOOL isRecording;
 @property (nonatomic, assign, readonly) BOOL isPaused;
 @property (nonatomic, weak) UIViewController *currentLiveVC;
+@property (nonatomic, copy) NSString *currentStreamURL;
 
 + (instancetype)shared;
 - (void)attachToViewController:(UIViewController *)vc;
@@ -19,4 +20,5 @@
 - (void)resumeRecording;
 - (void)stopRecording;
 - (void)resetUI;
+- (void)triggerNativeCleanScreen:(BOOL)clean;
 @end
