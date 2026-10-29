@@ -506,11 +506,11 @@ extern __weak id activeCleanScreenFragment;
         @try {
             if (clean) {
                 if ([activeCleanScreenFragment respondsToSelector:@selector(switchToCleanModeWithType:)]) {
-                    [activeCleanScreenFragment performSelector:@selector(switchToCleanModeWithType:) withObject:(id)1];
+                    [(IESLiveMTCleanScreenFragment *)activeCleanScreenFragment switchToCleanModeWithType:1];
                 }
             } else {
                 if ([activeCleanScreenFragment respondsToSelector:@selector(switchToNormalModeWithType:)]) {
-                    [activeCleanScreenFragment performSelector:@selector(switchToNormalModeWithType:) withObject:(id)1];
+                    [(IESLiveMTCleanScreenFragment *)activeCleanScreenFragment switchToNormalModeWithType:1];
                 }
             }
         } @catch (__unused NSException *e) {}
