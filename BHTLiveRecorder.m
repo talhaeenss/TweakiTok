@@ -475,6 +475,18 @@ static inline BOOL isLiveVideoOrPlayerView(UIView *view) {
     return NO;
 }
 
+// Oynatıcıyı (Player/Metal/Video) veya onu barındıran üst/alt katmanları kesinlikle koru
+static BOOL doesViewContainPlayerHierarchy(UIView *view) {
+    if (!view) return NO;
+    if (isLiveVideoOrPlayerView(view)) return YES;
+    for (UIView *sub in view.subviews) {
+        if (doesViewContainPlayerHierarchy(sub)) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 static inline BOOL isLiveOverlayContainerView(UIView *view) {
     if (!view) return NO;
     NSString *cls = NSStringFromClass([view class]);
@@ -490,10 +502,6 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"TopView"] ||
         [cls containsString:@"TopBar"] ||
         [cls containsString:@"TopContainer"] ||
-        [cls containsString:@"Header"] ||
-        [cls containsString:@"NavBar"] ||
-        [cls containsString:@"NavigationBar"] ||
-        [cls containsString:@"NavView"] ||
         [cls containsString:@"Rank"] ||
         [cls containsString:@"Ranking"] ||
         [cls containsString:@"Gallery"] ||
@@ -507,7 +515,6 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"Sticker"] ||
         [cls containsString:@"Barrage"] ||
         [cls containsString:@"Pendant"] ||
-        [cls containsString:@"Interaction"] ||
         [cls containsString:@"FollowGuide"] ||
         [cls containsString:@"AnchorInfo"] ||
         [cls containsString:@"Badge"] ||
@@ -516,10 +523,7 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"Anole"] ||
         [cls containsString:@"Slot"] ||
         [cls containsString:@"Banner"] ||
-        [cls containsString:@"Activity"] ||
         [cls containsString:@"Campaign"] ||
-        [cls containsString:@"Notice"] ||
-        [cls containsString:@"Task"] ||
         [cls containsString:@"Capsule"] ||
         [cls containsString:@"Drawer"] ||
         [cls containsString:@"Battle"] ||
@@ -532,8 +536,6 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"LuckyBox"] ||
         [cls containsString:@"RedPacket"] ||
         [cls containsString:@"Coin"] ||
-        [cls containsString:@"Topic"] ||
-        [cls containsString:@"Mic"] ||
         [cls containsString:@"LinkMic"] ||
         [cls containsString:@"MultiGuest"] ||
         [cls containsString:@"Cohost"] ||
@@ -544,13 +546,7 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"Cart"] ||
         [cls containsString:@"Shop"] ||
         [cls containsString:@"ECom"] ||
-        [cls containsString:@"HotLive"] ||
-        [cls containsString:@"Popular"] ||
-        [cls containsString:@"Event"] ||
-        [cls containsString:@"Mission"] ||
-        [cls containsString:@"Wish"] ||
-        [cls containsString:@"Drops"] ||
-        [cls containsString:@"Tag"]) {
+        [cls containsString:@"HotLive"]) {
         return YES;
     }
     
@@ -565,12 +561,10 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                                 [text containsString:@"Rank"] || 
                                 [text containsString:@"Galeri"] || 
                                 [text containsString:@"Gallery"] ||
-                                [text containsString:@"Popüler"] ||
-                                [text containsString:@"Popular"] ||
-                                [text containsString:@"CANLI"] ||
+                                [text containsString:@"Popüler CANLI"] ||
+                                [text containsString:@"Popular LIVE"] ||
                                 [text containsString:@"Hedef"] ||
                                 [text containsString:@"Goal"] ||
-                                [text containsString:@"Giriş"] ||
                                 [text containsString:@"Patiler"])) {
             return YES;
         }
@@ -582,12 +576,10 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                                     [text containsString:@"Rank"] || 
                                     [text containsString:@"Galeri"] || 
                                     [text containsString:@"Gallery"] ||
-                                    [text containsString:@"Popüler"] ||
-                                    [text containsString:@"Popular"] ||
-                                    [text containsString:@"CANLI"] ||
+                                    [text containsString:@"Popüler CANLI"] ||
+                                    [text containsString:@"Popular LIVE"] ||
                                     [text containsString:@"Hedef"] ||
                                     [text containsString:@"Goal"] ||
-                                    [text containsString:@"Giriş"] ||
                                     [text containsString:@"Patiler"])) {
                 return YES;
             }
@@ -603,31 +595,10 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
             self.hiddenOverlays = [NSHashTable weakObjectsHashTable];
         }
 
-        // Tüm aktif pencereleri tara (üst katmanlar veya overlay pencereleri kaçmasın)
-        NSMutableArray<UIView *> *queue = [NSMutableArray array];
-        if (@available(iOS 13.0, *)) {
-            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-                if ([scene isKindOfClass:[UIWindowScene class]]) {
-                    UIWindowScene *winScene = (UIWindowScene *)scene;
-                    for (UIWindow *win in winScene.windows) {
-                        if (win && !win.hidden && win != self.secureField.window) {
-                            [queue addObject:win];
-                        }
-                    }
-                }
-            }
-        }
-        if (queue.count == 0) {
-            for (UIWindow *win in [UIApplication sharedApplication].windows) {
-                if (win && !win.hidden) {
-                    [queue addObject:win];
-                }
-            }
-        }
-        if (queue.count == 0 && self.currentLiveVC && self.currentLiveVC.view) {
-            UIView *rootView = self.currentLiveVC.view.window ?: self.currentLiveVC.view;
-            [queue addObject:rootView];
-        }
+        // Doğrudan canlı yayın odasının kendi view hiyerarşisi üzerinden tara
+        // Böylece uygulamanın ana pencere yapısına veya video oynatıcı köklerine asla dokunulmaz
+        UIView *rootView = self.currentLiveVC.view;
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:rootView];
 
         NSInteger safetyCounter = 0;
         while (queue.count > 0 && safetyCounter < 1500) {
@@ -635,8 +606,7 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
             UIView *current = queue.firstObject;
             [queue removeObjectAtIndex:0];
 
-            // Pencere ve ana controller görünümünü asla gizleme, alt elemanlarına in
-            if ([current isKindOfClass:[UIWindow class]] || current == self.currentLiveVC.view) {
+            if (current == rootView) {
                 for (UIView *sub in current.subviews) {
                     [queue addObject:sub];
                 }
@@ -653,6 +623,15 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                 continue;
             }
 
+            // KESİN GÜVENCE: Oynatıcı (Player) veya render katmanını içeren HİÇBİR görünüm gizlenemez
+            // Sadece alt dallarına inilerek oynatıcı dışındaki arayüz bileşenleri aranır
+            if (doesViewContainPlayerHierarchy(current)) {
+                for (UIView *sub in current.subviews) {
+                    [queue addObject:sub];
+                }
+                continue;
+            }
+
             NSString *cls = NSStringFromClass([current class]);
 
             // Ana oda container/root görünümleri gizlenmez, alt dallarına inilir
@@ -662,11 +641,6 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                 for (UIView *sub in current.subviews) {
                     [queue addObject:sub];
                 }
-                continue;
-            }
-
-            // Video oynatıcı (Metal / Player / VideoEngine / TVL) katmanlarına kesinlikle dokunulmaz!
-            if (isLiveVideoOrPlayerView(current)) {
                 continue;
             }
 
