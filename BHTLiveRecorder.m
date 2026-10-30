@@ -407,6 +407,11 @@
     self.elapsedSeconds++;
     self.timerLabel.text = [self formattedTimeString:self.elapsedSeconds];
 
+    // Canlı yayın esnasında sonradan beliren veya güncellenen katmanları (yeni hediye, sıralama, izleyici vb.) periyodik gizle
+    if (self.elapsedSeconds % 2 == 0) {
+        [self hideLiveOverlaysSafely];
+    }
+
     [UIView animateWithDuration:0.4 animations:^{
         self.timerDot.alpha = (self.timerDot.alpha > 0.5) ? 0.3 : 1.0;
     }];
@@ -451,65 +456,228 @@
 
 #pragma mark - Safe Live Overlay Management (Clean Feed Recording)
 
+static inline BOOL isLiveVideoOrPlayerView(UIView *view) {
+    if (!view) return NO;
+    NSString *cls = NSStringFromClass([view class]);
+    if ([cls containsString:@"Player"] ||
+        [cls containsString:@"VideoEngine"] ||
+        [cls containsString:@"TVL"] ||
+        [cls containsString:@"Metal"] ||
+        [cls containsString:@"OpenGL"] ||
+        [cls containsString:@"GLKView"]) {
+        return YES;
+    }
+    CALayer *layer = view.layer;
+    if ([layer isKindOfClass:NSClassFromString(@"CAMetalLayer")] ||
+        [layer isKindOfClass:NSClassFromString(@"AVPlayerLayer")]) {
+        return YES;
+    }
+    return NO;
+}
+
+static inline BOOL isLiveOverlayContainerView(UIView *view) {
+    if (!view) return NO;
+    NSString *cls = NSStringFromClass([view class]);
+    
+    // Canlı yayın arayüzü, üst bar, sıralama, galeri, izleyici ve alt araç çubuğu bileşenleri
+    if ([cls containsString:@"PluginLayout"] ||
+        [cls containsString:@"MessageList"] ||
+        [cls containsString:@"Comment"] ||
+        [cls containsString:@"Toolbar"] ||
+        [cls containsString:@"PublicScreen"] ||
+        [cls containsString:@"Profile"] ||
+        [cls containsString:@"BottomView"] ||
+        [cls containsString:@"TopView"] ||
+        [cls containsString:@"TopBar"] ||
+        [cls containsString:@"TopContainer"] ||
+        [cls containsString:@"Header"] ||
+        [cls containsString:@"NavBar"] ||
+        [cls containsString:@"NavigationBar"] ||
+        [cls containsString:@"NavView"] ||
+        [cls containsString:@"Rank"] ||
+        [cls containsString:@"Ranking"] ||
+        [cls containsString:@"Gallery"] ||
+        [cls containsString:@"AudienceList"] ||
+        [cls containsString:@"AudienceEntrance"] ||
+        [cls containsString:@"UserList"] ||
+        [cls containsString:@"Viewer"] ||
+        [cls containsString:@"Close"] ||
+        [cls containsString:@"Gift"] ||
+        [cls containsString:@"Digg"] ||
+        [cls containsString:@"Sticker"] ||
+        [cls containsString:@"Barrage"] ||
+        [cls containsString:@"Pendant"] ||
+        [cls containsString:@"Interaction"] ||
+        [cls containsString:@"FollowGuide"] ||
+        [cls containsString:@"AnchorInfo"] ||
+        [cls containsString:@"Badge"] ||
+        [cls containsString:@"Level"] ||
+        [cls containsString:@"Lynx"] ||
+        [cls containsString:@"Anole"] ||
+        [cls containsString:@"Slot"] ||
+        [cls containsString:@"Banner"] ||
+        [cls containsString:@"Activity"] ||
+        [cls containsString:@"Campaign"] ||
+        [cls containsString:@"Notice"] ||
+        [cls containsString:@"Task"] ||
+        [cls containsString:@"Capsule"] ||
+        [cls containsString:@"Drawer"] ||
+        [cls containsString:@"Battle"] ||
+        [cls containsString:@"Match"] ||
+        [cls containsString:@"ScoreBar"] ||
+        [cls containsString:@"Enigma"] ||
+        [cls containsString:@"PK"] ||
+        [cls containsString:@"GoodyBag"] ||
+        [cls containsString:@"Treasure"] ||
+        [cls containsString:@"LuckyBox"] ||
+        [cls containsString:@"RedPacket"] ||
+        [cls containsString:@"Coin"] ||
+        [cls containsString:@"Topic"] ||
+        [cls containsString:@"Mic"] ||
+        [cls containsString:@"LinkMic"] ||
+        [cls containsString:@"MultiGuest"] ||
+        [cls containsString:@"Cohost"] ||
+        [cls containsString:@"Goal"] ||
+        [cls containsString:@"StarComment"] ||
+        [cls containsString:@"Vote"] ||
+        [cls containsString:@"Poll"] ||
+        [cls containsString:@"Cart"] ||
+        [cls containsString:@"Shop"] ||
+        [cls containsString:@"ECom"] ||
+        [cls containsString:@"HotLive"] ||
+        [cls containsString:@"Popular"] ||
+        [cls containsString:@"Event"] ||
+        [cls containsString:@"Mission"] ||
+        [cls containsString:@"Wish"] ||
+        [cls containsString:@"Drops"] ||
+        [cls containsString:@"Tag"]) {
+        return YES;
+    }
+    
+    return NO;
+}
+
+static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
+    if (!view) return NO;
+    if ([view isKindOfClass:[UILabel class]]) {
+        NSString *text = [(UILabel *)view text];
+        if (text.length > 0 && ([text containsString:@"Sıralama"] || 
+                                [text containsString:@"Rank"] || 
+                                [text containsString:@"Galeri"] || 
+                                [text containsString:@"Gallery"] ||
+                                [text containsString:@"Popüler"] ||
+                                [text containsString:@"Popular"] ||
+                                [text containsString:@"CANLI"] ||
+                                [text containsString:@"Hedef"] ||
+                                [text containsString:@"Goal"] ||
+                                [text containsString:@"Giriş"] ||
+                                [text containsString:@"Patiler"])) {
+            return YES;
+        }
+    }
+    for (UIView *sub in view.subviews) {
+        if ([sub isKindOfClass:[UILabel class]]) {
+            NSString *text = [(UILabel *)sub text];
+            if (text.length > 0 && ([text containsString:@"Sıralama"] || 
+                                    [text containsString:@"Rank"] || 
+                                    [text containsString:@"Galeri"] || 
+                                    [text containsString:@"Gallery"] ||
+                                    [text containsString:@"Popüler"] ||
+                                    [text containsString:@"Popular"] ||
+                                    [text containsString:@"CANLI"] ||
+                                    [text containsString:@"Hedef"] ||
+                                    [text containsString:@"Goal"] ||
+                                    [text containsString:@"Giriş"] ||
+                                    [text containsString:@"Patiler"])) {
+                return YES;
+            }
+        }
+    }
+    return NO;
+}
+
 - (void)hideLiveOverlaysSafely {
     @try {
         if (!self.currentLiveVC || !self.currentLiveVC.view) return;
         if (!self.hiddenOverlays) {
             self.hiddenOverlays = [NSHashTable weakObjectsHashTable];
         }
-        [self.hiddenOverlays removeAllObjects];
 
-        // Ekrandaki tüm canlı yayın katmanlarına erişebilmek için pencere (window) veya ana view üzerinden BFS başlatılır
-        UIView *rootView = self.currentLiveVC.view.window ?: self.currentLiveVC.view;
-        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:rootView];
+        // Tüm aktif pencereleri tara (üst katmanlar veya overlay pencereleri kaçmasın)
+        NSMutableArray<UIView *> *queue = [NSMutableArray array];
+        if (@available(iOS 13.0, *)) {
+            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+                if ([scene isKindOfClass:[UIWindowScene class]]) {
+                    UIWindowScene *winScene = (UIWindowScene *)scene;
+                    for (UIWindow *win in winScene.windows) {
+                        if (win && !win.hidden && win != self.secureField.window) {
+                            [queue addObject:win];
+                        }
+                    }
+                }
+            }
+        }
+        if (queue.count == 0) {
+            for (UIWindow *win in [UIApplication sharedApplication].windows) {
+                if (win && !win.hidden) {
+                    [queue addObject:win];
+                }
+            }
+        }
+        if (queue.count == 0 && self.currentLiveVC && self.currentLiveVC.view) {
+            UIView *rootView = self.currentLiveVC.view.window ?: self.currentLiveVC.view;
+            [queue addObject:rootView];
+        }
+
         NSInteger safetyCounter = 0;
-        while (queue.count > 0 && safetyCounter < 1000) {
+        while (queue.count > 0 && safetyCounter < 1500) {
             safetyCounter++;
             UIView *current = queue.firstObject;
             [queue removeObjectAtIndex:0];
 
+            // Pencere ve ana controller görünümünü asla gizleme, alt elemanlarına in
+            if ([current isKindOfClass:[UIWindow class]] || current == self.currentLiveVC.view) {
+                for (UIView *sub in current.subviews) {
+                    [queue addObject:sub];
+                }
+                continue;
+            }
+
+            // Tweak'in kendi kontrol paneli (Sayaç, Durdur butonu vs.) dokunulmaz
             if (current.tag == 8880 || current.tag == 8881 || current.tag == 8882 || current.tag == 8883 || current.tag == 8884 || current.tag == 8885 ||
                 current == self.containerView || current == self.secureField) {
                 continue;
             }
 
-            NSString *cls = NSStringFromClass([current class]);
-
-            // Video oynatıcı (Metal / Player / VideoEngine) katmanlarına kesinlikle dokunulmaz!
-            if ([cls containsString:@"Player"] ||
-                [cls containsString:@"VideoEngine"] ||
-                [cls containsString:@"TVL"] ||
-                [cls containsString:@"Metal"]) {
+            if ([current isDescendantOfView:self.secureField] || [current isDescendantOfView:self.containerView]) {
                 continue;
             }
 
-            // Canlı yayın arayüz elemanlarını tespit et:
-            // - Yorumlar ve mesaj listesi
-            // - Yayıncı profil barı ("Katıl", isim, sıralama)
-            // - Alt araç çubuğu (yorum yazma kutusu, hediye, paylaş)
-            // - Ekrana gelen hediyeler, beğeniler, çıkartmalar
-            BOOL isOverlay = NO;
-            if ([cls containsString:@"PluginLayout"] ||
-                [cls containsString:@"MessageList"] ||
-                [cls containsString:@"Comment"] ||
-                [cls containsString:@"Toolbar"] ||
-                [cls containsString:@"PublicScreen"] ||
-                [cls containsString:@"Profile"] ||
-                [cls containsString:@"BottomView"] ||
-                [cls containsString:@"TopView"] ||
-                [cls containsString:@"Gift"] ||
-                [cls containsString:@"Digg"] ||
-                [cls containsString:@"Sticker"] ||
-                [cls containsString:@"Barrage"] ||
-                [cls containsString:@"Pendant"] ||
-                [cls containsString:@"Interaction"] ||
-                [cls containsString:@"FollowGuide"] ||
-                [cls containsString:@"AnchorInfo"]) {
+            NSString *cls = NSStringFromClass([current class]);
+
+            // Ana oda container/root görünümleri gizlenmez, alt dallarına inilir
+            if ([cls isEqualToString:@"IESLiveMTAudienceView"] ||
+                [cls isEqualToString:@"IESLiveAudienceView"] ||
+                [cls containsString:@"AudienceViewController"]) {
+                for (UIView *sub in current.subviews) {
+                    [queue addObject:sub];
+                }
+                continue;
+            }
+
+            // Video oynatıcı (Metal / Player / VideoEngine / TVL) katmanlarına kesinlikle dokunulmaz!
+            if (isLiveVideoOrPlayerView(current)) {
+                continue;
+            }
+
+            // Canlı yayın arayüz katmanını sınıf adı veya metin içeriğine göre tespit et
+            BOOL isOverlay = isLiveOverlayContainerView(current);
+            if (!isOverlay && viewOrSubviewsContainLiveOverlayText(current)) {
                 isOverlay = YES;
             }
 
             if (isOverlay) {
-                if (!current.hidden && current.alpha > 0.0) {
+                if (!current.hidden && current.alpha > 0.01) {
                     current.hidden = YES;
                     [self.hiddenOverlays addObject:current];
                 }
