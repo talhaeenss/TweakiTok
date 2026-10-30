@@ -509,6 +509,7 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"AudienceEntrance"] ||
         [cls containsString:@"UserList"] ||
         [cls containsString:@"Viewer"] ||
+        [cls containsString:@"Contributor"] ||
         [cls containsString:@"Close"] ||
         [cls containsString:@"Gift"] ||
         [cls containsString:@"Digg"] ||
@@ -546,7 +547,14 @@ static inline BOOL isLiveOverlayContainerView(UIView *view) {
         [cls containsString:@"Cart"] ||
         [cls containsString:@"Shop"] ||
         [cls containsString:@"ECom"] ||
-        [cls containsString:@"HotLive"]) {
+        [cls containsString:@"HotLive"] ||
+        [cls containsString:@"AnimationContainer"] ||
+        [cls containsString:@"Broadcast"] ||
+        [cls containsString:@"Notice"] ||
+        [cls containsString:@"Marquee"] ||
+        [cls containsString:@"Tray"] ||
+        [cls containsString:@"SoundWave"] ||
+        [cls containsString:@"Wave"]) {
         return YES;
     }
     
@@ -565,7 +573,10 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                                 [text containsString:@"Popular LIVE"] ||
                                 [text containsString:@"Hedef"] ||
                                 [text containsString:@"Goal"] ||
-                                [text containsString:@"Patiler"])) {
+                                [text containsString:@"Patiler"] ||
+                                [text containsString:@"gönderdi"] ||
+                                [text containsString:@"sent"] ||
+                                [text containsString:@"Universe"])) {
             return YES;
         }
     }
@@ -580,7 +591,10 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
                                     [text containsString:@"Popular LIVE"] ||
                                     [text containsString:@"Hedef"] ||
                                     [text containsString:@"Goal"] ||
-                                    [text containsString:@"Patiler"])) {
+                                    [text containsString:@"Patiler"] ||
+                                    [text containsString:@"gönderdi"] ||
+                                    [text containsString:@"sent"] ||
+                                    [text containsString:@"Universe"])) {
                 return YES;
             }
         }
@@ -595,9 +609,9 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
             self.hiddenOverlays = [NSHashTable weakObjectsHashTable];
         }
 
-        // Doğrudan canlı yayın odasının kendi view hiyerarşisi üzerinden tara
-        // Böylece uygulamanın ana pencere yapısına veya video oynatıcı köklerine asla dokunulmaz
-        UIView *rootView = self.currentLiveVC.view;
+        // Window seviyesinden başlatılarak FeedContainer ve oda dışındaki üst bar (X butonu ve avatarlar) da taranır
+        // Ancak doesViewContainPlayerHierarchy sayesinde video oynatıcısını taşıyan hiçbir kök katman gizlenmez
+        UIView *rootView = self.currentLiveVC.view.window ?: self.currentLiveVC.view;
         NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:rootView];
 
         NSInteger safetyCounter = 0;
@@ -606,7 +620,7 @@ static inline BOOL viewOrSubviewsContainLiveOverlayText(UIView *view) {
             UIView *current = queue.firstObject;
             [queue removeObjectAtIndex:0];
 
-            if (current == rootView) {
+            if (current == rootView || [current isKindOfClass:[UIWindow class]]) {
                 for (UIView *sub in current.subviews) {
                     [queue addObject:sub];
                 }
