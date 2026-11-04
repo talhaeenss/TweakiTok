@@ -42,6 +42,10 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Disable Telemetry**: Blocks background analytics and diagnostic tracking to ByteDance servers.
 - **Security Bypasses**: Bypasses jailbreak detection and environment checks.
 
+## GitHub Actions & Prebuilt Releases
+
+Ready-to-install .deb packages and modded .ipa releases are automatically compiled and published via GitHub Actions on every push. Check out the [Releases](https://github.com/talhaeenss/TweakiTok/releases) tab to grab the latest builds!
+
 ## TODO
 
 - [ ] **Remember clear display**: Persist clean screen mode across videos.
