@@ -49,6 +49,7 @@
 + (BOOL)disableScreenshotDetection;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
++ (BOOL)sanitizeLinks;
 + (BOOL)showRegionChangeOption;
 + (NSNumber *)offlineVideosLimit;
 + (NSDictionary *)abOverrides;

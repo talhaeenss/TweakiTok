@@ -106,6 +106,10 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"follow_status_badge"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"extended_bio"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"extendedComment"];
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"sanitize_links"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"download_cover_image"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"download_cover_image"];
@@ -3611,6 +3615,244 @@ static void bht_layoutProgressBarInView(UIView *parentView) {
 }
 %end
 
+#pragma mark - Sanitize Sharing Links
+
+static BOOL isTrackingQueryParameter(NSString *name) {
+    if (!name || name.length == 0) return NO;
+    NSString *lower = [name lowercaseString];
+
+    static NSSet *knownTrackingParams = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        knownTrackingParams = [NSSet setWithObjects:
+            @"_t", @"_r", @"_d", @"u_code", @"preview_pb", @"sharer_language",
+            @"share_item_id", @"share_link_id", @"share_app_id", @"share_app_name",
+            @"share_token", @"source", @"timestamp", @"user_id", @"sec_user_id",
+            @"sec_uid", @"tt_from", @"checksum", @"is_from_webapp", @"sender_device",
+            @"sender_web_id", @"enter_from", @"enter_method", @"gd_label",
+            @"iid", @"mid", @"carrier_region", @"tz_offset", @"app_version",
+            @"manifest_version_code", @"channel", @"device_type", @"device_platform",
+            @"os_version", @"version_code", @"fbclid", @"gclid", @"msclkid",
+            nil];
+    });
+
+    if ([knownTrackingParams containsObject:lower]) {
+        return YES;
+    }
+
+    if ([lower hasPrefix:@"utm_"]) return YES;
+    if ([lower hasPrefix:@"_"]) return YES;
+    if ([lower hasPrefix:@"tt_"]) return YES;
+    if ([lower hasPrefix:@"share_"] || [lower hasSuffix:@"_share"]) return YES;
+    if ([lower containsString:@"track"] || [lower containsString:@"affiliate"] || [lower containsString:@"referrer"]) return YES;
+    if ([lower hasSuffix:@"_id"] && ([lower containsString:@"sender"] || [lower containsString:@"sharer"] || [lower containsString:@"user"])) {
+        return YES;
+    }
+
+    return NO;
+}
+
+static BOOL isTikTokHost(NSString *host) {
+    if (!host) return NO;
+    NSString *h = [host lowercaseString];
+    return [h isEqualToString:@"tiktok.com"] || [h hasSuffix:@".tiktok.com"] ||
+           [h isEqualToString:@"douyin.com"] || [h hasSuffix:@".douyin.com"] ||
+           [h isEqualToString:@"tiktokv.com"] || [h hasSuffix:@".tiktokv.com"];
+}
+
+static NSURL *sanitizeTikTokURL(NSURL *url) {
+    if (!url) return nil;
+    if (![BHIManager sanitizeLinks]) return url;
+
+    NSString *host = url.host;
+    if (!host || !isTikTokHost(host)) {
+        return url;
+    }
+
+    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    if (!components) return url;
+
+    NSArray<NSURLQueryItem *> *queryItems = components.queryItems;
+    if (!queryItems || queryItems.count == 0) {
+        return url;
+    }
+
+    NSMutableArray<NSURLQueryItem *> *cleanItems = [NSMutableArray array];
+    BOOL modified = NO;
+    for (NSURLQueryItem *item in queryItems) {
+        if (isTrackingQueryParameter(item.name)) {
+            modified = YES;
+        } else {
+            [cleanItems addObject:item];
+        }
+    }
+
+    if (!modified) {
+        return url;
+    }
+
+    if (cleanItems.count > 0) {
+        components.queryItems = cleanItems;
+    } else {
+        components.queryItems = nil;
+        components.query = nil;
+    }
+
+    NSURL *cleanURL = components.URL;
+    return cleanURL ?: url;
+}
+
+static NSString *sanitizeStringIfContainsTikTokLink(NSString *text) {
+    if (!text || text.length == 0) return text;
+    if (![BHIManager sanitizeLinks]) return text;
+
+    NSString *lowerText = [text lowercaseString];
+    if (![lowerText containsString:@"tiktok"] && ![lowerText containsString:@"douyin"]) {
+        return text;
+    }
+
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSURL *directURL = [NSURL URLWithString:trimmed];
+    if (directURL && directURL.scheme && directURL.host && isTikTokHost(directURL.host)) {
+        NSURL *clean = sanitizeTikTokURL(directURL);
+        return clean ? [clean absoluteString] : text;
+    }
+
+    NSError *error = nil;
+    NSDataDetector *detector = [NSDataDetector dataDetectorWithTypes:NSTextCheckingTypeLink error:&error];
+    if (error || !detector) return text;
+
+    NSArray<NSTextCheckingResult *> *matches = [detector matchesInString:text options:0 range:NSMakeRange(0, text.length)];
+    if (matches.count == 0) return text;
+
+    NSMutableString *result = [text mutableCopy];
+    for (NSInteger i = (NSInteger)matches.count - 1; i >= 0; i--) {
+        NSTextCheckingResult *match = matches[i];
+        NSRange matchRange = match.range;
+        NSURL *foundURL = match.URL;
+        if (!foundURL) {
+            NSString *urlStr = [text substringWithRange:matchRange];
+            foundURL = [NSURL URLWithString:urlStr];
+        }
+        if (foundURL && isTikTokHost(foundURL.host)) {
+            NSURL *cleanURL = sanitizeTikTokURL(foundURL);
+            if (cleanURL) {
+                [result replaceCharactersInRange:matchRange withString:[cleanURL absoluteString]];
+            }
+        }
+    }
+    return [result copy];
+}
+
+%hook UIPasteboard
+- (void)setString:(NSString *)string {
+    if ([BHIManager sanitizeLinks]) {
+        string = sanitizeStringIfContainsTikTokLink(string);
+    }
+    %orig(string);
+}
+- (void)setURL:(NSURL *)url {
+    if ([BHIManager sanitizeLinks] && url) {
+        url = sanitizeTikTokURL(url);
+    }
+    %orig(url);
+}
+- (void)setValue:(id)value forPasteboardType:(NSString *)pasteboardType {
+    if ([BHIManager sanitizeLinks] && value) {
+        if ([value isKindOfClass:[NSString class]]) {
+            value = sanitizeStringIfContainsTikTokLink((NSString *)value);
+        } else if ([value isKindOfClass:[NSURL class]]) {
+            value = sanitizeTikTokURL((NSURL *)value);
+        }
+    }
+    %orig(value, pasteboardType);
+}
+- (void)setItems:(NSArray *)items options:(NSDictionary *)options {
+    if ([BHIManager sanitizeLinks] && items) {
+        NSMutableArray *newItems = [NSMutableArray arrayWithCapacity:items.count];
+        for (id item in items) {
+            if ([item isKindOfClass:[NSDictionary class]]) {
+                NSMutableDictionary *newItem = [((NSDictionary *)item) mutableCopy];
+                for (NSString *key in [newItem allKeys]) {
+                    id val = newItem[key];
+                    if ([val isKindOfClass:[NSString class]]) {
+                        newItem[key] = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                    } else if ([val isKindOfClass:[NSURL class]]) {
+                        newItem[key] = sanitizeTikTokURL((NSURL *)val);
+                    }
+                }
+                [newItems addObject:newItem];
+            } else {
+                [newItems addObject:item];
+            }
+        }
+        items = newItems;
+    }
+    %orig(items, options);
+}
+- (void)setObjects:(NSArray *)objects {
+    if ([BHIManager sanitizeLinks] && objects) {
+        NSMutableArray *newObjs = [NSMutableArray arrayWithCapacity:objects.count];
+        for (id obj in objects) {
+            if ([obj isKindOfClass:[NSString class]]) {
+                [newObjs addObject:sanitizeStringIfContainsTikTokLink((NSString *)obj)];
+            } else if ([obj isKindOfClass:[NSURL class]]) {
+                [newObjs addObject:sanitizeTikTokURL((NSURL *)obj)];
+            } else {
+                [newObjs addObject:obj];
+            }
+        }
+        objects = newObjs;
+    }
+    %orig(objects);
+}
+%end
+
+%hook UIActivityViewController
+- (instancetype)initWithActivityItems:(NSArray *)activityItems applicationActivities:(NSArray *)applicationActivities {
+    if ([BHIManager sanitizeLinks] && activityItems) {
+        NSMutableArray *newItems = [NSMutableArray arrayWithCapacity:activityItems.count];
+        for (id item in activityItems) {
+            if ([item isKindOfClass:[NSString class]]) {
+                [newItems addObject:sanitizeStringIfContainsTikTokLink((NSString *)item)];
+            } else if ([item isKindOfClass:[NSURL class]]) {
+                [newItems addObject:sanitizeTikTokURL((NSURL *)item)];
+            } else {
+                [newItems addObject:item];
+            }
+        }
+        activityItems = newItems;
+    }
+    return %orig(activityItems, applicationActivities);
+}
+%end
+
+%hook AWEShareBaseChannel
+- (BOOL)prepareWithContext:(id)context {
+    if ([BHIManager sanitizeLinks] && context) {
+        @try {
+            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content"]) {
+                if ([context respondsToSelector:NSSelectorFromString(prop)]) {
+                    id val = [context valueForKey:prop];
+                    if ([val isKindOfClass:[NSString class]]) {
+                        NSString *cleaned = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                        if (cleaned && ![cleaned isEqualToString:val]) {
+                            [context setValue:cleaned forKey:prop];
+                        }
+                    } else if ([val isKindOfClass:[NSURL class]]) {
+                        NSURL *cleaned = sanitizeTikTokURL((NSURL *)val);
+                        if (cleaned && ![cleaned isEqual:val]) {
+                            [context setValue:cleaned forKey:prop];
+                        }
+                    }
+                }
+            }
+        } @catch (__unused NSException *e) {}
+    }
+    return %orig(context);
+}
+%end
+
 %hook TTKShareConfiguration
 - (id)initWithShareContext:(id)context {
     id res = %orig;
@@ -3619,6 +3861,24 @@ static void bht_layoutProgressBarInView(UIView *parentView) {
             sCurrentShareAweme = [context valueForKey:@"aweme"];
         } else if ([context respondsToSelector:@selector(model)]) {
             sCurrentShareAweme = (id)[context model];
+        }
+        if ([BHIManager sanitizeLinks] && context) {
+            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content"]) {
+                if ([context respondsToSelector:NSSelectorFromString(prop)]) {
+                    id val = [context valueForKey:prop];
+                    if ([val isKindOfClass:[NSString class]]) {
+                        NSString *cleaned = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                        if (cleaned && ![cleaned isEqualToString:val]) {
+                            [context setValue:cleaned forKey:prop];
+                        }
+                    } else if ([val isKindOfClass:[NSURL class]]) {
+                        NSURL *cleaned = sanitizeTikTokURL((NSURL *)val);
+                        if (cleaned && ![cleaned isEqual:val]) {
+                            [context setValue:cleaned forKey:prop];
+                        }
+                    }
+                }
+            }
         }
     } @catch (__unused NSException *e) {}
     return res;

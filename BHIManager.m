@@ -190,6 +190,12 @@
 + (BOOL)ghostTyping {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_typing"];
 }
++ (BOOL)sanitizeLinks {
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"sanitize_links"] == nil) {
+        return YES;
+    }
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"sanitize_links"];
+}
 + (BOOL)showRegionChangeOption {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"show_region_change_option"];
 }

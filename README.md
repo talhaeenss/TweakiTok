@@ -34,6 +34,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Region Changer**: Built-in region selector to browse TikTok feeds from any country.
 - **App Lock**: Biometric Face ID / Touch ID and passcode protection.
 - **Privacy & Ghost Mode**: Disable read receipts and typing indicators in DMs.
+- **Sanitize Sharing Links**: Removes tracking and referral parameters (such as `_t`, `_r`, user IDs, device fingerprints, and UTM parameters) from shared and copied TikTok video and profile links to protect your privacy and prevent account linking. Essential parameters, video IDs, and usernames are fully preserved to keep links functional. Enabled by default; can be toggled off anytime in TweakiTok settings.
 - **Security Bypasses**: Bypasses screenshot detection and jailbreak detection.
 
 ## License

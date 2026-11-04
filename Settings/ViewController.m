@@ -129,7 +129,7 @@
         case 5: return 2;
         case 6: return 2;
         case 7: return 1;
-        case 8: return 2;
+        case 8: return 3;
         case 9: return 1;
         case 10: return 1;
         default: return 0;
@@ -469,6 +469,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Hayalet Modu: Yazıyor Bilgisi" : @"Ghost Mode: Typing"
                                                 Detail:tr ? @"DM'lerde yazarken yazıyor bildirimini engeller" : @"Type without sending typing indicators"
                                                    Key:@"ghost_typing"];
+            case 2:
+                return [self createSwitchCellWithTitle:tr ? @"Paylaşım Bağlantılarını Temizle" : @"Sanitize sharing links"
+                                                Detail:tr ? @"Gizliliğinizi korumak için paylaşılan TikTok bağlantılarındaki izleme parametrelerini kaldırır." : @"Removes tracking parameters from shared TikTok links to protect your privacy."
+                                                   Key:@"sanitize_links"];
             default:
                 break;
         }
@@ -568,7 +572,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults objectForKey:key] != nil) {
         switchView.on = [defaults boolForKey:key];
-    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"]) {
+    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"] || [key isEqualToString:@"sanitize_links"]) {
         switchView.on = YES;
     } else {
         switchView.on = NO;
