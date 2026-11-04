@@ -108,7 +108,8 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"extendedComment"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
-        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"disable_telemetry"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
         [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
@@ -119,7 +120,10 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"disable_telemetry"]) {
-        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"disable_telemetry"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"always_show_publish_date"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
@@ -1489,15 +1493,9 @@ static BOOL isAuthenticationShowed = FALSE;
     return %orig;
 }
 + (id)rawModelFromLiveRoomModel:(id)arg1 {
-    if ([BHIManager disableLive]) {
-        return nil;
-    }
     return %orig;
 }
 + (id)aweLiveRoom_subModelPropertyKey {
-    if ([BHIManager disableLive]) {
-        return nil;
-    }
     return %orig;
 }
 %end
@@ -1517,22 +1515,72 @@ static BOOL isAuthenticationShowed = FALSE;
 }
 %end
 
+static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
+    if (timestamp <= 0) return @"";
+    NSDate *date = [NSDate dateWithTimeIntervalSince1970:timestamp];
+    NSTimeInterval diff = [[NSDate date] timeIntervalSinceDate:date];
+    if (diff < 0) diff = 0;
+    
+    BOOL tr = [BHIManager isTurkish];
+    if (diff < 60) {
+        return tr ? @"az önce" : @"just now";
+    } else if (diff < 3600) {
+        int m = (int)(diff / 60);
+        return tr ? [NSString stringWithFormat:@"%dd önce", m] : [NSString stringWithFormat:@"%dm ago", m];
+    } else if (diff < 86400) {
+        int h = (int)(diff / 3600);
+        return tr ? [NSString stringWithFormat:@"%ds önce", h] : [NSString stringWithFormat:@"%dh ago", h];
+    } else if (diff < 86400 * 7) {
+        int d = (int)(diff / 86400);
+        return tr ? [NSString stringWithFormat:@"%dg önce", d] : [NSString stringWithFormat:@"%dd ago", d];
+    } else if (diff < 86400 * 30) {
+        int w = (int)(diff / (86400 * 7));
+        return tr ? [NSString stringWithFormat:@"%dh önce", w] : [NSString stringWithFormat:@"%dw ago", w];
+    } else {
+        NSDateFormatter *df = [[NSDateFormatter alloc] init];
+        [df setDateFormat:@"dd.MM.yyyy HH:mm"];
+        return [df stringFromDate:date];
+    }
+}
+
 %hook TUXLabel
 - (void)setText:(NSString*)arg1 {
-    if ([BHIManager showUsername]) {
-        if ([[[self superview] superview] isKindOfClass:%c(AWEPlayInteractionAuthorUserNameButton)]){
-            AWEFeedCellViewController *rootVC = [[[self superview] superview] yy_viewController];
-            AWEAwemeModel *model = rootVC.model;
-            AWEUserModel *authorModel = model.author;
-            NSString *nickname = authorModel.nickname;
-            NSString *username = authorModel.socialName;
-            %orig(username);
-        }else {
-            %orig;
-        }
-    }else {
-        %orig;
+    BOOL isAuthorButton = NO;
+    AWEFeedCellViewController *rootVC = nil;
+    if ([[[self superview] superview] isKindOfClass:%c(AWEPlayInteractionAuthorUserNameButton)]) {
+        isAuthorButton = YES;
+        rootVC = (AWEFeedCellViewController *)[[[self superview] superview] yy_viewController];
+    } else if ([[self superview] isKindOfClass:%c(AWEPlayInteractionAuthorUserNameButton)]) {
+        isAuthorButton = YES;
+        rootVC = (AWEFeedCellViewController *)[[self superview] yy_viewController];
     }
+
+    if (isAuthorButton && rootVC) {
+        AWEAwemeModel *model = [rootVC respondsToSelector:@selector(model)] ? rootVC.model : nil;
+        NSString *finalText = arg1;
+
+        if ([BHIManager showUsername] && model.author.socialName.length > 0) {
+            finalText = model.author.socialName;
+        }
+
+        if ([BHIManager alwaysShowPublishDate] && model.createTime != nil && [model.createTime doubleValue] > 0) {
+            BOOL hasExistingDate = [arg1 containsString:@" · "] || [arg1 containsString:@" • "] || [arg1 containsString:@"·"];
+            if (!hasExistingDate) {
+                NSString *formattedDate = bht_formatPublishDate([model.createTime doubleValue]);
+                if (formattedDate.length > 0) {
+                    finalText = [NSString stringWithFormat:@"%@ · %@", finalText, formattedDate];
+                }
+            } else if ([BHIManager showUsername] && [arg1 containsString:@" · "]) {
+                NSArray *components = [arg1 componentsSeparatedByString:@" · "];
+                if (components.count > 1) {
+                    finalText = [NSString stringWithFormat:@"%@ · %@", finalText, components[1]];
+                }
+            }
+        }
+        %orig(finalText);
+        return;
+    }
+    %orig(arg1);
 }
 %end
 
@@ -1693,15 +1741,27 @@ static BOOL isAuthenticationShowed = FALSE;
 }
 %end
 
+static inline BOOL bht_isEssentialAppEvent(NSString *event) {
+    if (!event) return NO;
+    NSString *e = [event lowercaseString];
+    return [e containsString:@"live"] ||
+           [e containsString:@"inbox"] ||
+           [e containsString:@"notice"] ||
+           [e containsString:@"follow"] ||
+           [e containsString:@"feed"] ||
+           [e containsString:@"room"] ||
+           [e containsString:@"im_"];
+}
+
 %hook AppLog // Disable Telemetry & Analytics
 + (void)event:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
+    if ([BHIManager disableTelemetry] && !bht_isEssentialAppEvent(event)) {
         return;
     }
     %orig;
 }
 + (void)eventV3:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
+    if ([BHIManager disableTelemetry] && !bht_isEssentialAppEvent(event)) {
         return;
     }
     %orig;
@@ -1710,28 +1770,19 @@ static BOOL isAuthenticationShowed = FALSE;
 
 %hook BDTracker // Disable Telemetry & Tracking
 + (void)event:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
+    if ([BHIManager disableTelemetry] && !bht_isEssentialAppEvent(event)) {
         return;
     }
     %orig;
 }
 + (void)eventV3:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
+    if ([BHIManager disableTelemetry] && !bht_isEssentialAppEvent(event)) {
         return;
     }
     %orig;
 }
 + (void)trackEvent:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
-        return;
-    }
-    %orig;
-}
-%end
-
-%hook AWETracker // Disable Telemetry & Event logging
-+ (void)trackEvent:(NSString *)event params:(NSDictionary *)params {
-    if ([BHIManager disableTelemetry]) {
+    if ([BHIManager disableTelemetry] && !bht_isEssentialAppEvent(event)) {
         return;
     }
     %orig;

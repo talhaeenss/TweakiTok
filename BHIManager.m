@@ -191,10 +191,10 @@
     return [self disableScreenshotDetection];
 }
 + (BOOL)disableTelemetry {
-    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"disable_telemetry"] == nil) {
-        return YES;
-    }
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"disable_telemetry"];
+}
++ (BOOL)alwaysShowPublishDate {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"always_show_publish_date"];
 }
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];

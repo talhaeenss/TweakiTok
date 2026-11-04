@@ -123,7 +123,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 17;
+        case 0: return 18;
         case 1: return 5;
         case 2: return 4;
         case 3: return 10;
@@ -211,6 +211,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Kapak Resmini İndir" : @"Download Cover Image"
                                                 Detail:tr ? @"İndirme menüsüne videonun kapak resmini kaydetme seçeneğini ekler" : @"Add option to save video cover image in download menu"
                                                    Key:@"download_cover_image"];
+            case 17:
+                return [self createSwitchCellWithTitle:tr ? @"Paylaşım Tarihini Her Zaman Göster" : @"Always Show Publish Date"
+                                                Detail:tr ? @"Videonun ne zaman paylaşıldığını içerik üreticisinin adının yanında tam tarih/saat olarak gösterir ve profil videolarını sıralar." : @"Shows the exact publish date and time next to the creator's name on all feeds and orders profile videos."
+                                                   Key:@"always_show_publish_date"];
             default:
                 break;
         }
@@ -628,7 +632,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults objectForKey:key] != nil) {
         switchView.on = [defaults boolForKey:key];
-    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"] || [key isEqualToString:@"sanitize_links"] || [key isEqualToString:@"disable_screenshot_detection"] || [key isEqualToString:@"disable_telemetry"]) {
+    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"] || [key isEqualToString:@"sanitize_links"] || [key isEqualToString:@"disable_screenshot_detection"]) {
         switchView.on = YES;
     } else {
         switchView.on = NO;

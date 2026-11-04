@@ -49,6 +49,7 @@
 + (BOOL)disableScreenshotDetection;
 + (BOOL)disableScreenCaptureDetection;
 + (BOOL)disableTelemetry;
++ (BOOL)alwaysShowPublishDate;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;
