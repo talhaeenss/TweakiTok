@@ -103,6 +103,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setValue:selectedValue forKey:@"live_action"];
     [defaults synchronize];
+    [BHIManager showRestartNotification];
     
     [self.tableView reloadData];
     

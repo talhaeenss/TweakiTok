@@ -108,6 +108,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setValue:selectedLimit forKey:@"offline_videos_limit"];
     [defaults synchronize];
+    [BHIManager showRestartNotification];
 
     [self.tableView reloadData];
 

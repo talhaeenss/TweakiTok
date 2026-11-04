@@ -2235,6 +2235,25 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
     return @"jpeg";
 }
 
+static void restoreCurrentVideoFromClearDisplay(void) {
+    sIsClearDisplayActive = NO;
+    if (sCurrentActiveCell) {
+        if ([sCurrentActiveCell respondsToSelector:@selector(setElementsHidden:)]) {
+            [sCurrentActiveCell setElementsHidden:NO];
+        }
+        if ([sCurrentActiveCell respondsToSelector:@selector(applyClearDisplayMode:)]) {
+            [sCurrentActiveCell applyClearDisplayMode:NO];
+        }
+        if ([sCurrentActiveCell respondsToSelector:@selector(viewWithTag:)]) {
+            UIView *btn = [sCurrentActiveCell viewWithTag:997];
+            if (btn) {
+                btn.hidden = NO;
+                btn.alpha = 1.0;
+            }
+        }
+    }
+}
+
 %hook AWEFeedViewTemplateCell
 %property (nonatomic, strong) JGProgressHUD *hud;
 %property(nonatomic, assign) BOOL elementsHidden;
@@ -2398,24 +2417,13 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 %new - (void)toggleBHTikTokHideElements {
     AWEAwemeBaseViewController *rootVC = self.viewController;
     if ([rootVC.interactionController isKindOfClass:%c(TTKFeedInteractionLegacyMainContainerElement)]) {
-        TTKFeedInteractionLegacyMainContainerElement *interactionController = rootVC.interactionController;
-        UIView *btn = [self viewWithTag:997];
         if (self.elementsHidden) {
             self.elementsHidden = false;
-            sIsClearDisplayActive = NO;
-            [interactionController hideAllElements:false exceptArray:nil];
-            if (btn) {
-                btn.hidden = NO;
-                btn.alpha = 1.0;
-            }
+            restoreCurrentVideoFromClearDisplay();
         } else {
             self.elementsHidden = true;
             sIsClearDisplayActive = YES;
-            [interactionController hideAllElements:true exceptArray:nil];
-            if (btn) {
-                btn.hidden = YES;
-                btn.alpha = 0.0;
-            }
+            [self applyClearDisplayMode:YES];
         }
     }
 }
@@ -2438,13 +2446,13 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
                 [interaction hideAllElements:clear exceptArray:nil];
             }
             if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
-                [interaction setPureMode:clear animateDuration:0];
+                [interaction setPureMode:clear animateDuration:(clear ? 0.0 : 0.25)];
             }
         }
         if ([rootVC respondsToSelector:@selector(setPureMode:animated:)]) {
-            [rootVC setPureMode:clear animated:NO];
+            [rootVC setPureMode:clear animated:YES];
         } else if ([rootVC respondsToSelector:@selector(setPureMode:animation:)]) {
-            [rootVC setPureMode:clear animation:NO];
+            [rootVC setPureMode:clear animation:YES];
         }
     }
     UIView *btn = [self viewWithTag:997];
@@ -3001,24 +3009,13 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 %new - (void)toggleBHTikTokHideElements {
     AWEAwemeBaseViewController *rootVC = self.viewController;
     if ([rootVC.interactionController isKindOfClass:%c(TTKFeedInteractionLegacyMainContainerElement)]) {
-        TTKFeedInteractionLegacyMainContainerElement *interactionController = rootVC.interactionController;
-        UIView *btn = [self viewWithTag:997];
         if (self.elementsHidden) {
             self.elementsHidden = false;
-            sIsClearDisplayActive = NO;
-            [interactionController hideAllElements:false exceptArray:nil];
-            if (btn) {
-                btn.hidden = NO;
-                btn.alpha = 1.0;
-            }
+            restoreCurrentVideoFromClearDisplay();
         } else {
             self.elementsHidden = true;
             sIsClearDisplayActive = YES;
-            [interactionController hideAllElements:true exceptArray:nil];
-            if (btn) {
-                btn.hidden = YES;
-                btn.alpha = 0.0;
-            }
+            [self applyClearDisplayMode:YES];
         }
     }
 }
@@ -3041,13 +3038,13 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
                 [interaction hideAllElements:clear exceptArray:nil];
             }
             if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
-                [interaction setPureMode:clear animateDuration:0];
+                [interaction setPureMode:clear animateDuration:(clear ? 0.0 : 0.25)];
             }
         }
         if ([rootVC respondsToSelector:@selector(setPureMode:animated:)]) {
-            [rootVC setPureMode:clear animated:NO];
+            [rootVC setPureMode:clear animated:YES];
         } else if ([rootVC respondsToSelector:@selector(setPureMode:animation:)]) {
-            [rootVC setPureMode:clear animation:NO];
+            [rootVC setPureMode:clear animation:YES];
         }
     }
     UIView *btn = [self viewWithTag:997];
@@ -4379,8 +4376,18 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 
 %hook TTKFeedInteractionLongPressPanelManager
 - (void)longPressToggleStableClearMode {
-    if ([BHIManager rememberClearDisplay]) {
-        sIsClearDisplayActive = !sIsClearDisplayActive;
+    if (sIsClearDisplayActive) {
+        restoreCurrentVideoFromClearDisplay();
+    } else {
+        sIsClearDisplayActive = YES;
+        if (sCurrentActiveCell) {
+            if ([sCurrentActiveCell respondsToSelector:@selector(setElementsHidden:)]) {
+                [sCurrentActiveCell setElementsHidden:YES];
+            }
+            if ([sCurrentActiveCell respondsToSelector:@selector(applyClearDisplayMode:)]) {
+                [sCurrentActiveCell applyClearDisplayMode:YES];
+            }
+        }
     }
     %orig;
 }
@@ -4388,15 +4395,15 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 
 %hook TTKFeedExitClearModeElement
 - (void)exitButtonTapped {
-    sIsClearDisplayActive = NO;
     %orig;
+    restoreCurrentVideoFromClearDisplay();
 }
 %end
 
 %hook TTKFeedDeeperCleanModeComponent
 - (void)respondCloseButtonClick:(id)sender {
-    sIsClearDisplayActive = NO;
     %orig(sender);
+    restoreCurrentVideoFromClearDisplay();
 }
 - (void)p_exitDeeperCleanModeOnDisappearIfNeeded {
     if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
@@ -4408,8 +4415,8 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 
 %hook TTKFeedInteractionSurveyManager
 - (void)exitStableClearMode {
-    sIsClearDisplayActive = NO;
     %orig;
+    restoreCurrentVideoFromClearDisplay();
 }
 %end
 
@@ -4417,12 +4424,20 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 - (void)setPureMode:(BOOL)pure animated:(BOOL)animated {
     if (pure) {
         sIsClearDisplayActive = YES;
+    } else {
+        if (sCurrentActiveCell && (sCurrentActiveCell.viewController == self || (id)sCurrentActiveCell == (id)self)) {
+            restoreCurrentVideoFromClearDisplay();
+        }
     }
     %orig(pure, animated);
 }
 - (void)setPureMode:(BOOL)pure animation:(BOOL)animation {
     if (pure) {
         sIsClearDisplayActive = YES;
+    } else {
+        if (sCurrentActiveCell && (sCurrentActiveCell.viewController == self || (id)sCurrentActiveCell == (id)self)) {
+            restoreCurrentVideoFromClearDisplay();
+        }
     }
     %orig(pure, animation);
 }

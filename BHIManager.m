@@ -479,4 +479,96 @@
 + (NSString *)localizedString:(NSString *)en tr:(NSString *)tr {
     return [self isTurkish] ? tr : en;
 }
+
++ (void)showRestartNotification {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIWindow *window = nil;
+        for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
+                for (UIWindow *w in scene.windows) {
+                    if (w.isKeyWindow) {
+                        window = w;
+                        break;
+                    }
+                }
+                if (window) break;
+            }
+        }
+        if (!window) {
+            window = [UIApplication sharedApplication].keyWindow;
+        }
+        if (!window) return;
+
+        static const NSInteger kToastTag = 889988;
+        UIView *existing = [window viewWithTag:kToastTag];
+        if (existing) {
+            [NSObject cancelPreviousPerformRequestsWithTarget:[BHIManager class] selector:@selector(dismissRestartNotification:) object:existing];
+            [existing removeFromSuperview];
+        }
+
+        BOOL tr = [BHIManager isTurkish];
+        NSString *text = tr ? @"Uygulamayı yeniden başlatın" : @"Restart the app";
+
+        UIVisualEffectView *toast = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial]];
+        toast.tag = kToastTag;
+        toast.translatesAutoresizingMaskIntoConstraints = NO;
+        toast.layer.cornerRadius = 22.0;
+        toast.layer.masksToBounds = YES;
+        toast.layer.borderWidth = 0.5;
+        toast.layer.borderColor = [UIColor separatorColor].CGColor;
+        toast.alpha = 0.0;
+        toast.transform = CGAffineTransformMakeTranslation(0, 15);
+
+        UIImageView *iconView = [[UIImageView alloc] init];
+        iconView.translatesAutoresizingMaskIntoConstraints = NO;
+        UIImageSymbolConfiguration *config = [UIImageSymbolConfiguration configurationWithPointSize:14 weight:UIImageSymbolWeightSemibold];
+        iconView.image = [UIImage systemImageNamed:@"arrow.clockwise" withConfiguration:config];
+        iconView.tintColor = [UIColor labelColor];
+        iconView.contentMode = UIViewContentModeScaleAspectFit;
+
+        UILabel *label = [[UILabel alloc] init];
+        label.translatesAutoresizingMaskIntoConstraints = NO;
+        label.text = text;
+        label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+        label.textColor = [UIColor labelColor];
+        label.textAlignment = NSTextAlignmentCenter;
+
+        [toast.contentView addSubview:iconView];
+        [toast.contentView addSubview:label];
+        [window addSubview:toast];
+
+        [NSLayoutConstraint activateConstraints:@[
+            [toast.centerXAnchor constraintEqualToAnchor:window.centerXAnchor],
+            [toast.bottomAnchor constraintEqualToAnchor:window.safeAreaLayoutGuide.bottomAnchor constant:-20],
+            [toast.heightAnchor constraintEqualToConstant:44],
+
+            [iconView.leadingAnchor constraintEqualToAnchor:toast.contentView.leadingAnchor constant:16],
+            [iconView.centerYAnchor constraintEqualToAnchor:toast.contentView.centerYAnchor],
+            [iconView.widthAnchor constraintEqualToConstant:18],
+            [iconView.heightAnchor constraintEqualToConstant:18],
+
+            [label.leadingAnchor constraintEqualToAnchor:iconView.trailingAnchor constant:8],
+            [label.trailingAnchor constraintEqualToAnchor:toast.contentView.trailingAnchor constant:-18],
+            [label.centerYAnchor constraintEqualToAnchor:toast.contentView.centerYAnchor],
+        ]];
+
+        [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            toast.alpha = 1.0;
+            toast.transform = CGAffineTransformIdentity;
+        } completion:nil];
+
+        [[BHIManager class] performSelector:@selector(dismissRestartNotification:) withObject:toast afterDelay:3.0];
+    });
+}
+
++ (void)dismissRestartNotification:(UIView *)toast {
+    if (!toast) return;
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+        toast.alpha = 0.0;
+        toast.transform = CGAffineTransformMakeTranslation(0, 15);
+    } completion:^(BOOL finished) {
+        [toast removeFromSuperview];
+    }];
+}
+
 @end

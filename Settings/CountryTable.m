@@ -150,6 +150,7 @@
     [defaults setObject:selectedRegion forKey:@"region"];
     [defaults setBool:YES forKey:@"en_region"];
     [defaults synchronize];
+    [BHIManager showRestartNotification];
 
     [self.tableView reloadData];
 

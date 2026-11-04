@@ -166,6 +166,7 @@
         [defaults removeObjectForKey:@"ab_overrides"];
     }
     [defaults synchronize];
+    [BHIManager showRestartNotification];
 }
 
 // Apply overrides through TikTok's own debug-override mock layer (verified present in 46.5.0)

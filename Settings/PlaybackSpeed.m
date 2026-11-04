@@ -96,6 +96,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setValue:selectedSpeed forKey:@"playback_speed"];
     [defaults synchronize];
+    [BHIManager showRestartNotification];
     [self.staticTable reloadData];
 
     BOOL tr = [BHIManager isTurkish];

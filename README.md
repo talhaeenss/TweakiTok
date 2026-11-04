@@ -37,6 +37,13 @@ An awesome, modern TikTok tweak for iOS.
 - **Sanitize Sharing Links**: Strips tracking parameters (`_t`, `_r`, UTM, referrer) from shared links.
 - **Disable Screen Capture Detection**: Blocks screenshot & recording detection and suppresses share popups.
 - **Disable Telemetry**: Blocks background analytics and diagnostic tracking to ByteDance servers.
+- **Custom Playback Speed**: Default playback speed selection (0.5x, 1.0x, 1.5x, 2.0x).
+- **Offline Videos Limit**: Custom cache and offline video limits.
+- **Hide Live Streams**: Option to skip and hide live streams from the feed.
+- **Skip Recommendations**: Auto-skips recommended user cards and suggestion banners.
+- **Disable Pull to Refresh**: Prevents accidental feed refresh gestures.
+- **Disable Sensitive Content Warnings**: Bypasses intrusive content warning screens.
+- **Restart Notice Banner**: Adaptive toast notification prompting restart when settings change.
 - **Security Bypasses**: Bypasses jailbreak detection and environment checks.
 
 ## GitHub Actions & Prebuilt Releases

@@ -606,12 +606,14 @@
             self.title = @"TweakiTok Settings";
             self.navigationItem.rightBarButtonItem.title = @"Close";
             [self.staticTable reloadData];
+            [BHIManager showRestartNotification];
         }]];
         [alert addAction:[UIAlertAction actionWithTitle:@"Türkçe" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
             [BHIManager setLanguage:@"tr"];
             self.title = @"TweakiTok Ayarları";
             self.navigationItem.rightBarButtonItem.title = @"Kapat";
             [self.staticTable reloadData];
+            [BHIManager showRestartNotification];
         }]];
         [alert addAction:[UIAlertAction actionWithTitle:tr ? @"İptal" : @"Cancel" style:UIAlertActionStyleCancel handler:nil]];
         if (alert.popoverPresentationController) {
@@ -629,6 +631,7 @@
     self.title = [BHIManager isTurkish] ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
     self.navigationItem.rightBarButtonItem.title = [BHIManager isTurkish] ? @"Kapat" : @"Close";
     [self.staticTable reloadData];
+    [BHIManager showRestartNotification];
 }
 
 - (UITableViewCell *)createSwitchCellWithTitle:(NSString *)title Detail:(NSString*)detail Key:(NSString*)key {
@@ -660,6 +663,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setBool:sender.isOn forKey:key];
     [defaults synchronize];
+    [BHIManager showRestartNotification];
 }
 
 - (void)textFieldDidEndEditing:(UITextField *)textField {
@@ -667,10 +671,12 @@
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:textField.text forKey:@"following_count"];
         [defaults synchronize];
+        [BHIManager showRestartNotification];
     } else if (textField.tag == 2){
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:textField.text forKey:@"follower_count"];
         [defaults synchronize];
+        [BHIManager showRestartNotification];
     }
 }
 

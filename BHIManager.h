@@ -69,4 +69,6 @@
 + (void)setLanguage:(NSString *)lang;
 + (BOOL)isTurkish;
 + (NSString *)localizedString:(NSString *)en tr:(NSString *)tr;
++ (void)showRestartNotification;
++ (void)dismissRestartNotification:(UIView *)toast;
 @end
