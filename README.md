@@ -2,10 +2,6 @@
 
 An awesome, modern TikTok tweak for iOS.
 
-## GitHub Actions & Prebuilt Releases
-
-Ready-to-install `.deb` packages and modded `.ipa` releases are automatically compiled and published via GitHub Actions on every push. Check out the [Releases](https://github.com/talhaeenss/TweakiTok/releases) tab to grab the latest builds!
-
 ## Features
 
 - **No Ads**: Removes in-feed and sponsored ads.
@@ -44,7 +40,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 
 ## GitHub Actions & Prebuilt Releases
 
-Ready-to-install .deb packages and modded .ipa releases are automatically compiled and published via GitHub Actions on every push. Check out the [Releases](https://github.com/talhaeenss/TweakiTok/releases) tab to grab the latest builds!
+Ready-to-install `.deb` packages and modded `.ipa` releases are automatically compiled and published via GitHub Actions on every push. Check out the [Releases](https://github.com/talhaeenss/TweakiTok/releases) tab to grab the latest builds!
 
 ## TODO
 
