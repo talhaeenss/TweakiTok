@@ -246,9 +246,20 @@ jobs:
           insert_dylib --inplace --all-yes --no-strip-codesig "@rpath/TweakiTok.dylib" "$APP_PATH/$BINARY_NAME"
           chmod +x "$APP_PATH/$BINARY_NAME"
 
-          echo "Repacking modded IPA..."
+          echo "Determining TikTok version..."
+          TIKTOK_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist" 2>/dev/null || true)
+          if [ -z "$TIKTOK_VERSION" ]; then
+            TIKTOK_VERSION=$(echo "$IPA_FILE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+          fi
+          if [ -z "$TIKTOK_VERSION" ]; then
+            TIKTOK_VERSION="47.6.0"
+          fi
+          echo "Detected TikTok version: $TIKTOK_VERSION"
+          OUTPUT_IPA_NAME="TweakiTokV${TIKTOK_VERSION}_Modded.ipa"
+
+          echo "Repacking modded IPA as $OUTPUT_IPA_NAME..."
           cd ipa_working/extracted
-          zip -qry ../../ipa_output/TweakiTok_Modded.ipa Payload
+          zip -qry "../../ipa_output/$OUTPUT_IPA_NAME" Payload
           cd ../..
 
           echo "Modded IPA created successfully:"
@@ -262,6 +273,20 @@ jobs:
           path: ipa_output/*.ipa
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: clean old assets from latest release
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cleaning existing assets from latest release..."
+          ASSETS=$(gh release view latest --json assets -q '.assets[].name' 2>/dev/null || true)
+          for asset in $ASSETS; do
+            if [ -n "$asset" ]; then
+              echo "Deleting old release asset: $asset"
+              gh release delete-asset latest "$asset" -y || true
+            fi
+          done
 
       - name: publish modded ipa and packages to github releases
         if: success()
