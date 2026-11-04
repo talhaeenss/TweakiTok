@@ -279,40 +279,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Cleaning existing assets from latest release..."
-          ASSETS=$(gh release view latest --json assets -q '.assets[].name' 2>/dev/null || true)
-          for asset in $ASSETS; do
-            if [ -n "$asset" ]; then
-              echo "Deleting old release asset: $asset"
-              gh release delete-asset latest "$asset" -y || true
-            fi
-          done
+          echo "Deleting old 'latest' release and tag so timestamp and source code archives update..."
+          gh release delete latest --cleanup-tag -y 2>/dev/null || true
 
-          echo "Ensuring 'latest' release exists..."
-          if ! gh release view latest >/dev/null 2>&1; then
-            gh release create latest \
-              --title "TweakiTok Latest Release" \
-              --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)." \
-              --latest
-          fi
-
-          echo "Publishing assets to 'latest' release..."
+          echo "Recreating 'latest' release at current commit and uploading assets..."
           UPLOAD_SUCCESS=false
           for attempt in 1 2 3; do
-            echo "Uploading assets (attempt $attempt)..."
-            if gh release upload latest artifacts/* ipa_output/*.ipa --clobber; then
+            echo "Creating release and uploading assets (attempt $attempt)..."
+            if gh release create latest artifacts/* ipa_output/*.ipa \
+              --title "TweakiTok Latest Release" \
+              --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)." \
+              --target "$GITHUB_SHA" \
+              --latest; then
               UPLOAD_SUCCESS=true
-              echo "Assets uploaded successfully!"
+              echo "Release created and assets uploaded successfully!"
               break
             fi
-            echo "Upload failed (possibly GitHub API hiccup), retrying in 5 seconds..."
+            echo "Release creation failed, retrying in 5 seconds..."
             sleep 5
           done
 
           if [ "$UPLOAD_SUCCESS" != "true" ]; then
-            echo "ERROR: Failed to upload assets after 3 attempts."
+            echo "ERROR: Failed to create release and upload assets after 3 attempts."
             exit 1
           fi
-
-          gh release edit latest --title "TweakiTok Latest Release" --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)."
-          echo "Release updated successfully!"
+          echo "Release published successfully!"
