@@ -2128,14 +2128,17 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
             [self copyDecription:rootVC];
         }]];
     } else if ([rootVC isKindOfClass:%c(TTKPhotoAlbumDetailCellController)] || [rootVC isKindOfClass:%c(TTKPhotoAlbumFeedCellController)]) {
-        NSArray *photos = rootVC.model.photoAlbum.photos;
-        unsigned long photosCount = [photos count];
-        for (int i = 0; i < photosCount; i++) {
-            NSString *title = [BHIManager isTurkish] ? [NSString stringWithFormat:@"%d. Fotoğrafı İndir", i+1] : [NSString stringWithFormat:@"Download Photo %d", i+1];
-            [alert addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                [(id)self downloadPhotos:(id)rootVC photoIndex:i];
-            }]];
-        }
+        NSInteger currentPhotoIdx = 0;
+        @try {
+            AWEPlayPhotoAlbumViewController *pac = [rootVC valueForKey:@"_photoAlbumController"];
+            if (pac) {
+                NSIndexPath *ip = [pac currentIndexPath];
+                if (ip) currentPhotoIdx = ip.row;
+            }
+        } @catch (__unused NSException *e) {}
+        [alert addAction:[UIAlertAction actionWithTitle:[BHIManager localizedString:@"Download Current Photo" tr:@"Mevcut Fotoğrafı İndir"] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            [(id)self downloadPhotos:(id)rootVC photoIndex:(unsigned long)currentPhotoIdx];
+        }]];
         [alert addAction:[UIAlertAction actionWithTitle:[BHIManager localizedString:@"Download All Photos" tr:@"Tüm Fotoğrafları İndir"] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
             [(id)self downloadPhotos:(id)rootVC];
         }]];
@@ -2246,15 +2249,18 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
     }
 
     if ([rootVC isKindOfClass:%c(TTKPhotoAlbumDetailCellController)] || [rootVC isKindOfClass:%c(TTKPhotoAlbumFeedCellController)]) {
-        NSArray *photos = rootVC.model.photoAlbum.photos;
-        unsigned long photosCount = [photos count];
-        for (int i = 0; i < photosCount; i++) {
-            NSString *title = tr ? [NSString stringWithFormat:@"%d. Fotoğrafı İndir", i+1] : [NSString stringWithFormat:@"Download Photo %d", i+1];
-            UIAction *pAction = [UIAction actionWithTitle:title image:[UIImage systemImageNamed:@"photo"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
-                [(id)self downloadPhotos:(id)rootVC photoIndex:i];
-            }];
-            [menuActions addObject:pAction];
-        }
+        UIAction *dlCurrentPhotoAction = [UIAction actionWithTitle:tr ? @"Mevcut Fotoğrafı İndir" : @"Download Current Photo" image:[UIImage systemImageNamed:@"photo"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            NSInteger idx = 0;
+            @try {
+                AWEPlayPhotoAlbumViewController *pac = [rootVC valueForKey:@"_photoAlbumController"];
+                if (pac) {
+                    NSIndexPath *ip = [pac currentIndexPath];
+                    if (ip) idx = ip.row;
+                }
+            } @catch (__unused NSException *e) {}
+            [(id)self downloadPhotos:(id)rootVC photoIndex:(unsigned long)idx];
+        }];
+        [menuActions addObject:dlCurrentPhotoAction];
         UIAction *allPhotosAction = [UIAction actionWithTitle:tr ? @"Tüm Fotoğrafları İndir" : @"Download All Photos" image:[UIImage systemImageNamed:@"photo.on.rectangle"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
             [(id)self downloadPhotos:(id)rootVC];
         }];
@@ -2676,14 +2682,17 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
             [self copyDecription:rootVC];
         }]];
     } else if ([rootVC isKindOfClass:%c(TTKPhotoAlbumDetailCellController)] || [rootVC isKindOfClass:%c(TTKPhotoAlbumFeedCellController)]) {
-        NSArray *photos = rootVC.model.photoAlbum.photos;
-        unsigned long photosCount = [photos count];
-        for (int i = 0; i < photosCount; i++) {
-            NSString *title = [BHIManager isTurkish] ? [NSString stringWithFormat:@"%d. Fotoğrafı İndir", i+1] : [NSString stringWithFormat:@"Download Photo %d", i+1];
-            [alert addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-                [(id)self downloadPhotos:(id)rootVC photoIndex:i];
-            }]];
-        }
+        NSInteger currentPhotoIdx = 0;
+        @try {
+            AWEPlayPhotoAlbumViewController *pac = [rootVC valueForKey:@"_photoAlbumController"];
+            if (pac) {
+                NSIndexPath *ip = [pac currentIndexPath];
+                if (ip) currentPhotoIdx = ip.row;
+            }
+        } @catch (__unused NSException *e) {}
+        [alert addAction:[UIAlertAction actionWithTitle:[BHIManager localizedString:@"Download Current Photo" tr:@"Mevcut Fotoğrafı İndir"] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            [(id)self downloadPhotos:(id)rootVC photoIndex:(unsigned long)currentPhotoIdx];
+        }]];
         [alert addAction:[UIAlertAction actionWithTitle:[BHIManager localizedString:@"Download All Photos" tr:@"Tüm Fotoğrafları İndir"] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
             [(id)self downloadPhotos:(id)rootVC];
         }]];
@@ -2794,15 +2803,18 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
     }
 
     if ([rootVC isKindOfClass:%c(TTKPhotoAlbumDetailCellController)] || [rootVC isKindOfClass:%c(TTKPhotoAlbumFeedCellController)]) {
-        NSArray *photos = rootVC.model.photoAlbum.photos;
-        unsigned long photosCount = [photos count];
-        for (int i = 0; i < photosCount; i++) {
-            NSString *title = tr ? [NSString stringWithFormat:@"%d. Fotoğrafı İndir", i+1] : [NSString stringWithFormat:@"Download Photo %d", i+1];
-            UIAction *pAction = [UIAction actionWithTitle:title image:[UIImage systemImageNamed:@"photo"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
-                [(id)self downloadPhotos:(id)rootVC photoIndex:i];
-            }];
-            [menuActions addObject:pAction];
-        }
+        UIAction *dlCurrentPhotoAction = [UIAction actionWithTitle:tr ? @"Mevcut Fotoğrafı İndir" : @"Download Current Photo" image:[UIImage systemImageNamed:@"photo"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
+            NSInteger idx = 0;
+            @try {
+                AWEPlayPhotoAlbumViewController *pac = [rootVC valueForKey:@"_photoAlbumController"];
+                if (pac) {
+                    NSIndexPath *ip = [pac currentIndexPath];
+                    if (ip) idx = ip.row;
+                }
+            } @catch (__unused NSException *e) {}
+            [(id)self downloadPhotos:(id)rootVC photoIndex:(unsigned long)idx];
+        }];
+        [menuActions addObject:dlCurrentPhotoAction];
         UIAction *allPhotosAction = [UIAction actionWithTitle:tr ? @"Tüm Fotoğrafları İndir" : @"Download All Photos" image:[UIImage systemImageNamed:@"photo.on.rectangle"] identifier:nil handler:^(__kindof UIAction * _Nonnull action) {
             [(id)self downloadPhotos:(id)rootVC];
         }];
