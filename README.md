@@ -44,17 +44,15 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 
 ## TODO
 
-| Status | Feature |
-| :---: | :--- |
-| [ ] | Remember clear display |
-| [ ] | Keep the screen's refresh rate |
-| [ ] | Resume videos after scrolling |
-| [ ] | Translate comments |
-| [ ] | Show commenter handle and region |
-| [ ] | Show the progress bar thumbnail |
-| [ ] | Keep unsent messages |
-| [ ] | Ghost mode |
-| [ ] | Keep a streak going |
+- [X] **Remember clear display**: Ekranı temizleme modunu sonraki videoya geçtiğinde de açık tutar.
+- [X] **Keep the screen's refresh rate**: 90/120 Hz ekranlarda TikTok'un ekran hızını düşürmesini engeller, akıcılığı korur.
+- [X] **Resume videos after scrolling**: Geçilen videoya geri dönüldüğünde baştan başlamak yerine kaldığı yerden devam eder.
+- [X] **Translate comments**: Yorumların tek tek basmaya gerek kalmadan otomatik çevrilmesini sağlar.
+- [X] **Show commenter handle and region**: Yorum yapanların görünen adı yerine @kullanıcıadını ve hesap ülkesini gösterir.
+- [X] **Show the progress bar thumbnail**: Süre çubuğunu kaydırırken videonun anlık küçük önizleme resmini gösterir.
+- [X] **Keep unsent messages**: Karşı tarafın sildiği mesajları sohbetten kaldırmaz, "geri çekildi" olarak saklar.
+- [X] **Ghost mode**: Hikaye/profil görüntülemelerini, çevrimiçi durumunu ve mesaj okundu/yazıyor bilgisini gizler.
+- [X] **Keep a streak going**: TikTok'a girilmeyen günlerde seçilen kişilere otomatik mesaj atarak seriyi korur.
 
 ## License
 

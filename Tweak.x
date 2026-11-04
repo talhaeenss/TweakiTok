@@ -3919,16 +3919,14 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
         return text;
     }
     
-    NSArray *separators = @[@": ", @"： ", @"：", @":
-", @":"];
+    NSArray *separators = @[@": ", @"： ", @"：", @":\n", @":"];
     for (NSString *sep in separators) {
         NSRange sepRange = [text rangeOfString:sep];
         if (sepRange.location != NSNotFound) {
             NSString *prefix = [text substringToIndex:sepRange.location];
             
             // Format 1: "@username: comment"
-            if ([prefix hasPrefix:@"@"] && prefix.length >= 2 && prefix.length <= 60 && ![prefix containsString:@"
-"]) {
+            if ([prefix hasPrefix:@"@"] && prefix.length >= 2 && prefix.length <= 60 && ![prefix containsString:@"\n"]) {
                 NSString *remainder = [text substringFromIndex:sepRange.location + sepRange.length];
                 while ([remainder hasPrefix:@" "]) remainder = [remainder substringFromIndex:1];
                 if (remainder.length > 0) {
@@ -3937,8 +3935,7 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
             }
             
             // Format 2: "username: comment" or "Nickname: comment"
-            if (![prefix hasPrefix:@"@"] && prefix.length >= 1 && prefix.length <= 45 && ![prefix containsString:@"
-"]) {
+            if (![prefix hasPrefix:@"@"] && prefix.length >= 1 && prefix.length <= 45 && ![prefix containsString:@"\n"]) {
                 NSString *lower = [prefix lowercaseString];
                 if (![lower isEqualToString:@"http"] && ![lower isEqualToString:@"https"] && ![lower isEqualToString:@"file"] && ![lower isEqualToString:@"mailto"]) {
                     NSString *remainder = [text substringFromIndex:sepRange.location + sepRange.length];
