@@ -1,0 +1,62 @@
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+
+@interface BHIManager: NSObject
++ (instancetype)sharedManager;
+- (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error contextInfo:(void *)contextInfo;
++ (BOOL)hideAds;
++ (BOOL)downloadButton;
++ (BOOL)downloadCoverImage;
++ (BOOL)downloadStory;
++ (BOOL)liveRecordButton;
++ (BOOL)shareSheet;
++ (BOOL)removeWatermark;
++ (BOOL)hideElementButton;
++ (BOOL)uploadRegion;
++ (BOOL)autoPlay;
++ (BOOL)stopPlay;
++ (BOOL)progressBar;
++ (BOOL)transparentCommnet;
++ (BOOL)showUsername;
++ (BOOL)disablePullToRefresh;
++ (BOOL)disableUnsensitive;
++ (BOOL)disableWarnings;
++ (BOOL)disableLive;
++ (BOOL)skipRecommendations;
++ (BOOL)likeConfirmation;
++ (BOOL)likeCommentConfirmation;
++ (BOOL)dislikeCommentConfirmation;
++ (BOOL)followConfirmation;
++ (BOOL)followStatusBadge;
++ (BOOL)profileSave;
++ (BOOL)profileCopy;
++ (BOOL)profileVideoCount;
++ (BOOL)videoLikeCount;
++ (BOOL)videoUploadDate;
++ (BOOL)alwaysOpenSafari;
++ (BOOL)regionChangingEnabled;
++ (NSDictionary *)selectedRegion;
++ (NSNumber *)selectedLiveAction;
++ (BOOL)liveActionEnabled;
++ (BOOL)speedEnabled;
++ (NSNumber *)selectedSpeed;
++ (BOOL)fakeChangesEnabled;
++ (BOOL)fakeVerified;
++ (BOOL)uploadHD;
++ (BOOL)extendedBio;
++ (BOOL)extendedComment;
++ (BOOL)appLock;
++ (BOOL)disableScreenshotDetection;
++ (BOOL)ghostReadReceipts;
++ (BOOL)ghostTyping;
++ (BOOL)showRegionChangeOption;
++ (NSNumber *)offlineVideosLimit;
++ (NSDictionary *)abOverrides;
++ (void)showSaveVC:(id)item;
++ (void)cleanCache;
++ (BOOL)isEmpty:(NSURL *)url;
++ (NSString *)getDownloadingPersent:(float)per;
++ (void)saveMedia:(id)item fileExtension:(id)fileExtension;
++ (BOOL)isTurkish;
++ (NSString *)localizedString:(NSString *)en tr:(NSString *)tr;
+@end
