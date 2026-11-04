@@ -199,6 +199,9 @@
 + (BOOL)copyCommentWithoutUsername {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"copy_comment_without_username"];
 }
++ (BOOL)rememberClearDisplay {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"remember_clear_display"];
+}
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];
 }

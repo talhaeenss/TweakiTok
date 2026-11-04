@@ -123,7 +123,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 19;
+        case 0: return 20;
         case 1: return 5;
         case 2: return 4;
         case 3: return 10;
@@ -219,6 +219,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Yorumu Kullanıcı Adı Olmadan Kopyala" : @"Copy Comment Without Username"
                                                 Detail:tr ? @"Yorum kopyalandığında başındaki @kullanıcıadı etiketini kaldırarak yalnızca yorum metnini kopyalar" : @"Copies only the comment text without the @username prefix when copying a comment"
                                                    Key:@"copy_comment_without_username"];
+            case 19:
+                return [self createSwitchCellWithTitle:tr ? @"Temiz Ekran Modunu Hatırla" : @"Remember Clear Display"
+                                                Detail:tr ? @"Ekranı temizleme (butonları gizleme) modunu sonraki videoya geçtiğinde de açık tutar" : @"Keeps clear display mode active when scrolling to the next video"
+                                                   Key:@"remember_clear_display"];
             default:
                 break;
         }

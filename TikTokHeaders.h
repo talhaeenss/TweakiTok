@@ -587,6 +587,42 @@
 - (void)setItemSelectHandler:(void (^)(id item))handler;
 @end
 
+@interface _UIConcretePasteboard : UIPasteboard
+@end
+
+@interface TTKFeedInteractionLongPressPanelManager : NSObject
+- (void)longPressToggleStableClearMode;
+@end
+
+@interface TTKFeedExitClearModeElement : NSObject
+- (void)exitButtonTapped;
+@end
+
+@interface TTKFeedDeeperCleanModeComponent : NSObject
+- (void)respondCloseButtonClick:(id)sender;
+- (void)p_exitDeeperCleanModeOnDisappearIfNeeded;
+@end
+
+@interface TTKFeedInteractionSurveyManager : NSObject
+- (void)exitStableClearMode;
+@end
+
+@interface TTKFeedClearModeComponent : NSObject
+- (void)containerViewDidDisappear;
+- (void)_anotherPlayerAppeared:(id)arg1;
+- (void)p_resetUnstableClearModeIfNeeded;
+@end
+
+@interface TTKFeedDetailClearModeComponent : NSObject
+- (void)containerViewDidDisappear;
+- (void)_anotherPlayerAppeared:(id)arg1;
+- (void)p_resetUnstableClearModeIfNeeded;
+@end
+
+@interface TTKFeedInteractionClearModeManager : NSObject
+- (void)containerDidEndDisplaying;
+@end
+
 static BOOL is_iPad() {
     if ([(NSString *)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
         return YES;

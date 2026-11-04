@@ -51,6 +51,7 @@
 + (BOOL)disableTelemetry;
 + (BOOL)alwaysShowPublishDate;
 + (BOOL)copyCommentWithoutUsername;
++ (BOOL)rememberClearDisplay;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;

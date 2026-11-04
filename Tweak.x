@@ -67,6 +67,7 @@ static void showConfirmation(void (^okHandler)(void)) {
 }
 
 static BOOL sIsConfirmingLike = NO;
+static BOOL sIsClearDisplayActive = NO;
 
 static void showLikeConfirmation(void (^okHandler)(void)) {
   NSString *title = [BHIManager localizedString:@"TweakiTok, Hi" tr:@"TweakiTok, Selam"];
@@ -111,6 +112,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"disable_telemetry"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
         [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
@@ -128,6 +130,9 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"copy_comment_without_username"]) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"remember_clear_display"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
@@ -2062,6 +2067,25 @@ static inline BOOL bht_isEssentialAppEvent(NSString *event) {
 %end
 %hook AWEPlayVideoPlayerController
 - (void)containerDidFullyDisplayWithReason:(NSInteger)arg1 {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        UIViewController *c = [self container];
+        if (c) {
+            if ([c respondsToSelector:@selector(interactionController)]) {
+                id interaction = [(id)c interactionController];
+                if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                    [interaction hideAllElements:YES exceptArray:nil];
+                }
+                if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
+                    [interaction setPureMode:YES animateDuration:0];
+                }
+            }
+            if ([c respondsToSelector:@selector(setPureMode:animated:)]) {
+                [(id)c setPureMode:YES animated:NO];
+            } else if ([c respondsToSelector:@selector(setPureMode:animation:)]) {
+                [(id)c setPureMode:YES animation:NO];
+            }
+        }
+    }
     if ([[[self container] parentViewController] isKindOfClass:%c(AWENewFeedTableViewController)] && [BHIManager skipRecommendations]) {
         AWENewFeedTableViewController *rootVC = [[self container] parentViewController];
         AWEAwemeModel *currentModel = [rootVC currentAweme];
@@ -2219,7 +2243,12 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 - (void)configWithModel:(id)model {
     %orig;
     sCurrentActiveCell = self;
-    self.elementsHidden = false;
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        self.elementsHidden = YES;
+        [self applyClearDisplayMode:YES];
+    } else {
+        self.elementsHidden = NO;
+    }
     if ([BHIManager downloadButton]) {
         [self addBHTikTokMenuButton];
     }
@@ -2227,7 +2256,12 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 - (void)configureWithModel:(id)model {
     %orig;
     sCurrentActiveCell = self;
-    self.elementsHidden = false;
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        self.elementsHidden = YES;
+        [self applyClearDisplayMode:YES];
+    } else {
+        self.elementsHidden = NO;
+    }
     if ([BHIManager downloadButton]) {
         [self addBHTikTokMenuButton];
     }
@@ -2241,6 +2275,9 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
         if (mirror) [mirror removeFromSuperview];
         UIView *btn = [self viewWithTag:997];
         if (btn) [btn removeFromSuperview];
+    }
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        [self applyClearDisplayMode:YES];
     }
 }
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -2365,6 +2402,7 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
         UIView *btn = [self viewWithTag:997];
         if (self.elementsHidden) {
             self.elementsHidden = false;
+            sIsClearDisplayActive = NO;
             [interactionController hideAllElements:false exceptArray:nil];
             if (btn) {
                 btn.hidden = NO;
@@ -2372,12 +2410,47 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
             }
         } else {
             self.elementsHidden = true;
+            sIsClearDisplayActive = YES;
             [interactionController hideAllElements:true exceptArray:nil];
             if (btn) {
                 btn.hidden = YES;
                 btn.alpha = 0.0;
             }
         }
+    }
+}
+%new - (void)applyClearDisplayMode:(BOOL)clear {
+    AWEAwemeBaseViewController *rootVC = self.viewController;
+    if (!rootVC) {
+        UIResponder *r = self;
+        while (r) {
+            if ([r isKindOfClass:%c(AWEAwemeBaseViewController)]) {
+                rootVC = (AWEAwemeBaseViewController *)r;
+                break;
+            }
+            r = [r nextResponder];
+        }
+    }
+    if (rootVC) {
+        if ([rootVC respondsToSelector:@selector(interactionController)]) {
+            id interaction = [rootVC interactionController];
+            if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                [interaction hideAllElements:clear exceptArray:nil];
+            }
+            if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
+                [interaction setPureMode:clear animateDuration:0];
+            }
+        }
+        if ([rootVC respondsToSelector:@selector(setPureMode:animated:)]) {
+            [rootVC setPureMode:clear animated:NO];
+        } else if ([rootVC respondsToSelector:@selector(setPureMode:animation:)]) {
+            [rootVC setPureMode:clear animation:NO];
+        }
+    }
+    UIView *btn = [self viewWithTag:997];
+    if (btn) {
+        btn.hidden = clear;
+        btn.alpha = clear ? 0.0 : 1.0;
     }
 }
 %new - (UIView *)bhtFindAvatarView:(UIView *)parent {
@@ -2773,7 +2846,12 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 - (void)configWithModel:(id)model {
     %orig;
     sCurrentActiveCell = self;
-    self.elementsHidden = false;
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        self.elementsHidden = YES;
+        [self applyClearDisplayMode:YES];
+    } else {
+        self.elementsHidden = NO;
+    }
     if ([BHIManager downloadButton]) {
         [self addBHTikTokMenuButton];
     }
@@ -2781,7 +2859,12 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 - (void)configureWithModel:(id)model {
     %orig;
     sCurrentActiveCell = self;
-    self.elementsHidden = false;
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        self.elementsHidden = YES;
+        [self applyClearDisplayMode:YES];
+    } else {
+        self.elementsHidden = NO;
+    }
     if ([BHIManager downloadButton]) {
         [self addBHTikTokMenuButton];
     }
@@ -2795,6 +2878,9 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
         if (mirror) [mirror removeFromSuperview];
         UIView *btn = [self viewWithTag:997];
         if (btn) [btn removeFromSuperview];
+    }
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        [self applyClearDisplayMode:YES];
     }
 }
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -2919,6 +3005,7 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
         UIView *btn = [self viewWithTag:997];
         if (self.elementsHidden) {
             self.elementsHidden = false;
+            sIsClearDisplayActive = NO;
             [interactionController hideAllElements:false exceptArray:nil];
             if (btn) {
                 btn.hidden = NO;
@@ -2926,12 +3013,47 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
             }
         } else {
             self.elementsHidden = true;
+            sIsClearDisplayActive = YES;
             [interactionController hideAllElements:true exceptArray:nil];
             if (btn) {
                 btn.hidden = YES;
                 btn.alpha = 0.0;
             }
         }
+    }
+}
+%new - (void)applyClearDisplayMode:(BOOL)clear {
+    AWEAwemeBaseViewController *rootVC = self.viewController;
+    if (!rootVC) {
+        UIResponder *r = self;
+        while (r) {
+            if ([r isKindOfClass:%c(AWEAwemeBaseViewController)]) {
+                rootVC = (AWEAwemeBaseViewController *)r;
+                break;
+            }
+            r = [r nextResponder];
+        }
+    }
+    if (rootVC) {
+        if ([rootVC respondsToSelector:@selector(interactionController)]) {
+            id interaction = [rootVC interactionController];
+            if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                [interaction hideAllElements:clear exceptArray:nil];
+            }
+            if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
+                [interaction setPureMode:clear animateDuration:0];
+            }
+        }
+        if ([rootVC respondsToSelector:@selector(setPureMode:animated:)]) {
+            [rootVC setPureMode:clear animated:NO];
+        } else if ([rootVC respondsToSelector:@selector(setPureMode:animation:)]) {
+            [rootVC setPureMode:clear animation:NO];
+        }
+    }
+    UIView *btn = [self viewWithTag:997];
+    if (btn) {
+        btn.hidden = clear;
+        btn.alpha = clear ? 0.0 : 1.0;
     }
 }
 %new - (UIView *)bhtFindAvatarView:(UIView *)parent {
@@ -3919,6 +4041,26 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
         return text;
     }
     
+    static NSRegularExpression *sCommentPrefixRegex = nil;
+    static dispatch_once_t sCommentRegexOnce;
+    dispatch_once(&sCommentRegexOnce, ^{
+        sCommentPrefixRegex = [NSRegularExpression regularExpressionWithPattern:@"^@?[^\\s:：]+(?:\\s*\\([^)]*\\))?\\s*[:：]\\s*([\\s\\S]*)$" options:0 error:nil];
+    });
+    
+    if (sCommentPrefixRegex) {
+        NSTextCheckingResult *match = [sCommentPrefixRegex firstMatchInString:text options:0 range:NSMakeRange(0, text.length)];
+        if (match && match.numberOfRanges > 1) {
+            NSRange r = [match rangeAtIndex:1];
+            if (r.location != NSNotFound) {
+                NSString *remainder = [text substringWithRange:r];
+                while ([remainder hasPrefix:@" "]) remainder = [remainder substringFromIndex:1];
+                if (remainder.length > 0) {
+                    return remainder;
+                }
+            }
+        }
+    }
+    
     NSArray *separators = @[@": ", @"： ", @"：", @":\n", @":"];
     for (NSString *sep in separators) {
         NSRange sepRange = [text rangeOfString:sep];
@@ -4068,6 +4210,291 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
         objects = newObjs;
     }
     %orig(objects);
+}
+- (NSString *)string {
+    NSString *orig = %orig;
+    if ([BHIManager copyCommentWithoutUsername]) {
+        orig = cleanCommentTextIfPrefixedWithUsername(orig);
+    }
+    return orig;
+}
+- (NSArray *)strings {
+    NSArray *orig = %orig;
+    if ([BHIManager copyCommentWithoutUsername] && orig) {
+        NSMutableArray *res = [NSMutableArray arrayWithCapacity:orig.count];
+        for (id item in orig) {
+            if ([item isKindOfClass:[NSString class]]) {
+                [res addObject:cleanCommentTextIfPrefixedWithUsername((NSString *)item)];
+            } else {
+                [res addObject:item];
+            }
+        }
+        return res;
+    }
+    return orig;
+}
+%end
+
+%hook _UIConcretePasteboard
+- (void)setString:(NSString *)string {
+    if ([BHIManager sanitizeLinks]) {
+        string = sanitizeStringIfContainsTikTokLink(string);
+    }
+    if ([BHIManager copyCommentWithoutUsername]) {
+        string = cleanCommentTextIfPrefixedWithUsername(string);
+    }
+    %orig(string);
+}
+- (void)setStrings:(NSArray *)strings {
+    if (strings) {
+        NSMutableArray *newStrings = [NSMutableArray arrayWithCapacity:strings.count];
+        for (id str in strings) {
+            if ([str isKindOfClass:[NSString class]]) {
+                NSString *val = (NSString *)str;
+                if ([BHIManager sanitizeLinks]) {
+                    val = sanitizeStringIfContainsTikTokLink(val);
+                }
+                if ([BHIManager copyCommentWithoutUsername]) {
+                    val = cleanCommentTextIfPrefixedWithUsername(val);
+                }
+                [newStrings addObject:val];
+            } else {
+                [newStrings addObject:str];
+            }
+        }
+        strings = newStrings;
+    }
+    %orig(strings);
+}
+- (void)setData:(NSData *)data forPasteboardType:(NSString *)pasteboardType {
+    if (data && ([pasteboardType isEqualToString:@"public.utf8-plain-text"] || [pasteboardType isEqualToString:@"public.plain-text"] || [pasteboardType isEqualToString:@"NSStringPboardType"])) {
+        NSString *str = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        if (str) {
+            if ([BHIManager sanitizeLinks]) {
+                str = sanitizeStringIfContainsTikTokLink(str);
+            }
+            if ([BHIManager copyCommentWithoutUsername]) {
+                str = cleanCommentTextIfPrefixedWithUsername(str);
+            }
+            data = [str dataUsingEncoding:NSUTF8StringEncoding];
+        }
+    }
+    %orig(data, pasteboardType);
+}
+- (void)setValue:(id)value forPasteboardType:(NSString *)pasteboardType {
+    if ([BHIManager sanitizeLinks] && value) {
+        if ([value isKindOfClass:[NSString class]]) {
+            value = sanitizeStringIfContainsTikTokLink((NSString *)value);
+        } else if ([value isKindOfClass:[NSURL class]]) {
+            value = sanitizeTikTokURL((NSURL *)value);
+        }
+    }
+    if ([BHIManager copyCommentWithoutUsername] && [value isKindOfClass:[NSString class]]) {
+        value = cleanCommentTextIfPrefixedWithUsername((NSString *)value);
+    }
+    %orig(value, pasteboardType);
+}
+- (void)setItems:(NSArray *)items options:(NSDictionary *)options {
+    if (items) {
+        NSMutableArray *newItems = [NSMutableArray arrayWithCapacity:items.count];
+        for (id item in items) {
+            if ([item isKindOfClass:[NSDictionary class]]) {
+                NSMutableDictionary *newItem = [((NSDictionary *)item) mutableCopy];
+                for (NSString *key in [newItem allKeys]) {
+                    id val = newItem[key];
+                    if ([val isKindOfClass:[NSString class]]) {
+                        NSString *strVal = (NSString *)val;
+                        if ([BHIManager sanitizeLinks]) {
+                            strVal = sanitizeStringIfContainsTikTokLink(strVal);
+                        }
+                        if ([BHIManager copyCommentWithoutUsername]) {
+                            strVal = cleanCommentTextIfPrefixedWithUsername(strVal);
+                        }
+                        newItem[key] = strVal;
+                    } else if ([val isKindOfClass:[NSURL class]]) {
+                        if ([BHIManager sanitizeLinks]) {
+                            newItem[key] = sanitizeTikTokURL((NSURL *)val);
+                        }
+                    }
+                }
+                [newItems addObject:newItem];
+            } else {
+                [newItems addObject:item];
+            }
+        }
+        items = newItems;
+    }
+    %orig(items, options);
+}
+- (void)setObjects:(NSArray *)objects {
+    if (objects) {
+        NSMutableArray *newObjs = [NSMutableArray arrayWithCapacity:objects.count];
+        for (id obj in objects) {
+            if ([obj isKindOfClass:[NSString class]]) {
+                NSString *strVal = (NSString *)obj;
+                if ([BHIManager sanitizeLinks]) {
+                    strVal = sanitizeStringIfContainsTikTokLink(strVal);
+                }
+                if ([BHIManager copyCommentWithoutUsername]) {
+                    strVal = cleanCommentTextIfPrefixedWithUsername(strVal);
+                }
+                [newObjs addObject:strVal];
+            } else if ([obj isKindOfClass:[NSURL class]]) {
+                if ([BHIManager sanitizeLinks]) {
+                    [newObjs addObject:sanitizeTikTokURL((NSURL *)obj)];
+                } else {
+                    [newObjs addObject:obj];
+                }
+            } else {
+                [newObjs addObject:obj];
+            }
+        }
+        objects = newObjs;
+    }
+    %orig(objects);
+}
+- (NSString *)string {
+    NSString *orig = %orig;
+    if ([BHIManager copyCommentWithoutUsername]) {
+        orig = cleanCommentTextIfPrefixedWithUsername(orig);
+    }
+    return orig;
+}
+- (NSArray *)strings {
+    NSArray *orig = %orig;
+    if ([BHIManager copyCommentWithoutUsername] && orig) {
+        NSMutableArray *res = [NSMutableArray arrayWithCapacity:orig.count];
+        for (id item in orig) {
+            if ([item isKindOfClass:[NSString class]]) {
+                [res addObject:cleanCommentTextIfPrefixedWithUsername((NSString *)item)];
+            } else {
+                [res addObject:item];
+            }
+        }
+        return res;
+    }
+    return orig;
+}
+%end
+
+%hook TTKFeedInteractionLongPressPanelManager
+- (void)longPressToggleStableClearMode {
+    if ([BHIManager rememberClearDisplay]) {
+        sIsClearDisplayActive = !sIsClearDisplayActive;
+    }
+    %orig;
+}
+%end
+
+%hook TTKFeedExitClearModeElement
+- (void)exitButtonTapped {
+    sIsClearDisplayActive = NO;
+    %orig;
+}
+%end
+
+%hook TTKFeedDeeperCleanModeComponent
+- (void)respondCloseButtonClick:(id)sender {
+    sIsClearDisplayActive = NO;
+    %orig(sender);
+}
+- (void)p_exitDeeperCleanModeOnDisappearIfNeeded {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook TTKFeedInteractionSurveyManager
+- (void)exitStableClearMode {
+    sIsClearDisplayActive = NO;
+    %orig;
+}
+%end
+
+%hook AWEAwemeBaseViewController
+- (void)setPureMode:(BOOL)pure animated:(BOOL)animated {
+    if (pure) {
+        sIsClearDisplayActive = YES;
+    }
+    %orig(pure, animated);
+}
+- (void)setPureMode:(BOOL)pure animation:(BOOL)animation {
+    if (pure) {
+        sIsClearDisplayActive = YES;
+    }
+    %orig(pure, animation);
+}
+- (void)viewDidAppear:(BOOL)animated {
+    %orig(animated);
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        if ([self respondsToSelector:@selector(interactionController)]) {
+            id interaction = [self interactionController];
+            if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                [interaction hideAllElements:YES exceptArray:nil];
+            }
+            if ([interaction respondsToSelector:@selector(setPureMode:animateDuration:)]) {
+                [interaction setPureMode:YES animateDuration:0];
+            }
+        }
+        if ([self respondsToSelector:@selector(setPureMode:animated:)]) {
+            [self setPureMode:YES animated:NO];
+        } else if ([self respondsToSelector:@selector(setPureMode:animation:)]) {
+            [self setPureMode:YES animation:NO];
+        }
+    }
+}
+%end
+
+%hook TTKFeedClearModeComponent
+- (void)containerViewDidDisappear {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
+}
+- (void)_anotherPlayerAppeared:(id)arg1 {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig(arg1);
+}
+- (void)p_resetUnstableClearModeIfNeeded {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook TTKFeedDetailClearModeComponent
+- (void)containerViewDidDisappear {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
+}
+- (void)_anotherPlayerAppeared:(id)arg1 {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig(arg1);
+}
+- (void)p_resetUnstableClearModeIfNeeded {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook TTKFeedInteractionClearModeManager
+- (void)containerDidEndDisplaying {
+    if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
+        return;
+    }
+    %orig;
 }
 %end
 
