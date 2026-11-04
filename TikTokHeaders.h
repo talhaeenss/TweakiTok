@@ -256,11 +256,14 @@
 @property(nonatomic, strong, readwrite) AWEAwemeModel *model;
 @property (nonatomic, copy, readwrite) NSString *referString;
 @property (nonatomic) id interactionController;
+- (void)setPureMode:(BOOL)pure animated:(BOOL)animated;
+- (void)setPureMode:(BOOL)pure animation:(BOOL)animation;
 @end
 
 
 @interface TTKFeedInteractionContainerElement: NSObject
 - (void)hideAllElements:(BOOL)hide exceptArray:(id)array;
+- (void)setPureMode:(BOOL)pure animateDuration:(double)duration;
 @end
 
 @interface TTKFeedInteractionMainContainerElement: TTKFeedInteractionContainerElement
@@ -331,6 +334,7 @@
 - (UIView *)bhtFindAvatarView:(UIView *)parent;
 - (void)showBHTikTokDownloadActionSheet;
 - (void)toggleBHTikTokHideElements;
+- (void)applyClearDisplayMode:(BOOL)clear;
 @end
 @interface AWEFeedViewTemplateCell () <BHDownloadDelegate, BHMultipleDownloadDelegate>
 @end
@@ -425,6 +429,7 @@
 - (NSNumber *)bht_storyCurrentPlaybackPercent;
 - (void)bht_seekStoryToPercent:(NSNumber *)percentNum;
 - (void)downloadCoverImage:(AWEAwemeBaseViewController *)rootVC;
+- (void)applyClearDisplayMode:(BOOL)clear;
 @end
 
 @interface TTKFeedPassthroughStackView: UIStackView
@@ -621,6 +626,13 @@
 
 @interface TTKFeedInteractionClearModeManager : NSObject
 - (void)containerDidEndDisplaying;
+@end
+
+@interface NSObject (TweakiTokClearModeSelectors)
+- (void)setPureMode:(BOOL)pure animateDuration:(double)duration;
+- (void)setPureMode:(BOOL)pure animated:(BOOL)animated;
+- (void)setPureMode:(BOOL)pure animation:(BOOL)animation;
+- (void)applyClearDisplayMode:(BOOL)clear;
 @end
 
 static BOOL is_iPad() {
