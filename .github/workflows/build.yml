@@ -274,7 +274,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: clean old assets from latest release
+      - name: publish modded ipa and packages to github releases
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -288,16 +288,31 @@ jobs:
             fi
           done
 
-      - name: publish modded ipa and packages to github releases
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: "TweakiTok Latest Release"
-          body: "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)."
-          files: |
-            artifacts/*
-            ipa_output/*.ipa
-          make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Ensuring 'latest' release exists..."
+          if ! gh release view latest >/dev/null 2>&1; then
+            gh release create latest \
+              --title "TweakiTok Latest Release" \
+              --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)." \
+              --latest
+          fi
+
+          echo "Publishing assets to 'latest' release..."
+          UPLOAD_SUCCESS=false
+          for attempt in 1 2 3; do
+            echo "Uploading assets (attempt $attempt)..."
+            if gh release upload latest artifacts/* ipa_output/*.ipa --clobber; then
+              UPLOAD_SUCCESS=true
+              echo "Assets uploaded successfully!"
+              break
+            fi
+            echo "Upload failed (possibly GitHub API hiccup), retrying in 5 seconds..."
+            sleep 5
+          done
+
+          if [ "$UPLOAD_SUCCESS" != "true" ]; then
+            echo "ERROR: Failed to upload assets after 3 attempts."
+            exit 1
+          fi
+
+          gh release edit latest --title "TweakiTok Latest Release" --notes "TweakiTok Modded IPA, TrollStore / TrollFools universal dylib and Jailbreak deb packages (rootless, rootful, roothide)."
+          echo "Release updated successfully!"
