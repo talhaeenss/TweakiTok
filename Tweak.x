@@ -68,6 +68,7 @@ static void showConfirmation(void (^okHandler)(void)) {
 
 static BOOL sIsConfirmingLike = NO;
 static BOOL sIsClearDisplayActive = NO;
+static BOOL sIsHandlingClearDisplay = NO;
 
 static void showLikeConfirmation(void (^okHandler)(void)) {
   NSString *title = [BHIManager localizedString:@"TweakiTok, Hi" tr:@"TweakiTok, Selam"];
@@ -2079,10 +2080,14 @@ static inline BOOL bht_isEssentialAppEvent(NSString *event) {
                     [interaction setPureMode:YES animateDuration:0];
                 }
             }
-            if ([c respondsToSelector:@selector(setPureMode:animated:)]) {
-                [(id)c setPureMode:YES animated:NO];
-            } else if ([c respondsToSelector:@selector(setPureMode:animation:)]) {
-                [(id)c setPureMode:YES animation:NO];
+            if (!sIsHandlingClearDisplay) {
+                sIsHandlingClearDisplay = YES;
+                if ([c respondsToSelector:@selector(setPureMode:animated:)]) {
+                    [(id)c setPureMode:YES animated:NO];
+                } else if ([c respondsToSelector:@selector(setPureMode:animation:)]) {
+                    [(id)c setPureMode:YES animation:NO];
+                }
+                sIsHandlingClearDisplay = NO;
             }
         }
     }
@@ -2236,6 +2241,8 @@ static NSString *getDownloadFormatForPhoto(AWEPhotoAlbumPhoto *photo) {
 }
 
 static void restoreCurrentVideoFromClearDisplay(void) {
+    if (sIsHandlingClearDisplay) return;
+    sIsHandlingClearDisplay = YES;
     sIsClearDisplayActive = NO;
     if (sCurrentActiveCell) {
         if ([sCurrentActiveCell respondsToSelector:@selector(setElementsHidden:)]) {
@@ -2252,6 +2259,7 @@ static void restoreCurrentVideoFromClearDisplay(void) {
             }
         }
     }
+    sIsHandlingClearDisplay = NO;
 }
 
 %hook AWEFeedViewTemplateCell
@@ -2296,7 +2304,11 @@ static void restoreCurrentVideoFromClearDisplay(void) {
         if (btn) [btn removeFromSuperview];
     }
     if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
-        [self applyClearDisplayMode:YES];
+        UIView *btn = [self viewWithTag:997];
+        if (btn) {
+            btn.hidden = YES;
+            btn.alpha = 0.0;
+        }
     }
 }
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -2428,6 +2440,15 @@ static void restoreCurrentVideoFromClearDisplay(void) {
     }
 }
 %new - (void)applyClearDisplayMode:(BOOL)clear {
+    if (sIsHandlingClearDisplay) {
+        UIView *btn = [self viewWithTag:997];
+        if (btn) {
+            btn.hidden = clear;
+            btn.alpha = clear ? 0.0 : 1.0;
+        }
+        return;
+    }
+    sIsHandlingClearDisplay = YES;
     AWEAwemeBaseViewController *rootVC = self.viewController;
     if (!rootVC) {
         UIResponder *r = self;
@@ -2460,6 +2481,7 @@ static void restoreCurrentVideoFromClearDisplay(void) {
         btn.hidden = clear;
         btn.alpha = clear ? 0.0 : 1.0;
     }
+    sIsHandlingClearDisplay = NO;
 }
 %new - (UIView *)bhtFindAvatarView:(UIView *)parent {
     if (!parent) return nil;
@@ -2888,7 +2910,11 @@ static void restoreCurrentVideoFromClearDisplay(void) {
         if (btn) [btn removeFromSuperview];
     }
     if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
-        [self applyClearDisplayMode:YES];
+        UIView *btn = [self viewWithTag:997];
+        if (btn) {
+            btn.hidden = YES;
+            btn.alpha = 0.0;
+        }
     }
 }
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -3020,6 +3046,15 @@ static void restoreCurrentVideoFromClearDisplay(void) {
     }
 }
 %new - (void)applyClearDisplayMode:(BOOL)clear {
+    if (sIsHandlingClearDisplay) {
+        UIView *btn = [self viewWithTag:997];
+        if (btn) {
+            btn.hidden = clear;
+            btn.alpha = clear ? 0.0 : 1.0;
+        }
+        return;
+    }
+    sIsHandlingClearDisplay = YES;
     AWEAwemeBaseViewController *rootVC = self.viewController;
     if (!rootVC) {
         UIResponder *r = self;
@@ -3052,6 +3087,7 @@ static void restoreCurrentVideoFromClearDisplay(void) {
         btn.hidden = clear;
         btn.alpha = clear ? 0.0 : 1.0;
     }
+    sIsHandlingClearDisplay = NO;
 }
 %new - (UIView *)bhtFindAvatarView:(UIView *)parent {
     if (!parent) return nil;
@@ -4422,31 +4458,71 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 
 %hook AWEAwemeBaseViewController
 - (void)setPureMode:(BOOL)pure animated:(BOOL)animated {
-    if (pure) {
-        sIsClearDisplayActive = YES;
-    } else {
-        id activeCell = sCurrentActiveCell;
-        id cellVC = nil;
-        if ([activeCell respondsToSelector:@selector(viewController)]) {
-            cellVC = [activeCell viewController];
-        }
-        if (activeCell && (cellVC == self || activeCell == self)) {
-            restoreCurrentVideoFromClearDisplay();
+    if (!sIsHandlingClearDisplay) {
+        if (pure) {
+            sIsClearDisplayActive = YES;
+            if (sCurrentActiveCell && [sCurrentActiveCell respondsToSelector:@selector(viewWithTag:)]) {
+                UIView *btn = [sCurrentActiveCell viewWithTag:997];
+                if (btn) {
+                    btn.hidden = YES;
+                    btn.alpha = 0.0;
+                }
+            }
+        } else {
+            sIsClearDisplayActive = NO;
+            if (sCurrentActiveCell) {
+                if ([sCurrentActiveCell respondsToSelector:@selector(setElementsHidden:)]) {
+                    [sCurrentActiveCell setElementsHidden:NO];
+                }
+                if ([sCurrentActiveCell respondsToSelector:@selector(viewWithTag:)]) {
+                    UIView *btn = [sCurrentActiveCell viewWithTag:997];
+                    if (btn) {
+                        btn.hidden = NO;
+                        btn.alpha = 1.0;
+                    }
+                }
+            }
+            if ([self respondsToSelector:@selector(interactionController)]) {
+                id interaction = [self interactionController];
+                if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                    [interaction hideAllElements:NO exceptArray:nil];
+                }
+            }
         }
     }
     %orig(pure, animated);
 }
 - (void)setPureMode:(BOOL)pure animation:(BOOL)animation {
-    if (pure) {
-        sIsClearDisplayActive = YES;
-    } else {
-        id activeCell = sCurrentActiveCell;
-        id cellVC = nil;
-        if ([activeCell respondsToSelector:@selector(viewController)]) {
-            cellVC = [activeCell viewController];
-        }
-        if (activeCell && (cellVC == self || activeCell == self)) {
-            restoreCurrentVideoFromClearDisplay();
+    if (!sIsHandlingClearDisplay) {
+        if (pure) {
+            sIsClearDisplayActive = YES;
+            if (sCurrentActiveCell && [sCurrentActiveCell respondsToSelector:@selector(viewWithTag:)]) {
+                UIView *btn = [sCurrentActiveCell viewWithTag:997];
+                if (btn) {
+                    btn.hidden = YES;
+                    btn.alpha = 0.0;
+                }
+            }
+        } else {
+            sIsClearDisplayActive = NO;
+            if (sCurrentActiveCell) {
+                if ([sCurrentActiveCell respondsToSelector:@selector(setElementsHidden:)]) {
+                    [sCurrentActiveCell setElementsHidden:NO];
+                }
+                if ([sCurrentActiveCell respondsToSelector:@selector(viewWithTag:)]) {
+                    UIView *btn = [sCurrentActiveCell viewWithTag:997];
+                    if (btn) {
+                        btn.hidden = NO;
+                        btn.alpha = 1.0;
+                    }
+                }
+            }
+            if ([self respondsToSelector:@selector(interactionController)]) {
+                id interaction = [self interactionController];
+                if ([interaction respondsToSelector:@selector(hideAllElements:exceptArray:)]) {
+                    [interaction hideAllElements:NO exceptArray:nil];
+                }
+            }
         }
     }
     %orig(pure, animation);
@@ -4463,10 +4539,14 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
                 [interaction setPureMode:YES animateDuration:0];
             }
         }
-        if ([self respondsToSelector:@selector(setPureMode:animated:)]) {
-            [self setPureMode:YES animated:NO];
-        } else if ([self respondsToSelector:@selector(setPureMode:animation:)]) {
-            [self setPureMode:YES animation:NO];
+        if (!sIsHandlingClearDisplay) {
+            sIsHandlingClearDisplay = YES;
+            if ([self respondsToSelector:@selector(setPureMode:animated:)]) {
+                [self setPureMode:YES animated:NO];
+            } else if ([self respondsToSelector:@selector(setPureMode:animation:)]) {
+                [self setPureMode:YES animation:NO];
+            }
+            sIsHandlingClearDisplay = NO;
         }
     }
 }
