@@ -4425,7 +4425,12 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
     if (pure) {
         sIsClearDisplayActive = YES;
     } else {
-        if (sCurrentActiveCell && (sCurrentActiveCell.viewController == self || (id)sCurrentActiveCell == (id)self)) {
+        id activeCell = sCurrentActiveCell;
+        id cellVC = nil;
+        if ([activeCell respondsToSelector:@selector(viewController)]) {
+            cellVC = [activeCell viewController];
+        }
+        if (activeCell && (cellVC == self || activeCell == self)) {
             restoreCurrentVideoFromClearDisplay();
         }
     }
@@ -4435,7 +4440,12 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
     if (pure) {
         sIsClearDisplayActive = YES;
     } else {
-        if (sCurrentActiveCell && (sCurrentActiveCell.viewController == self || (id)sCurrentActiveCell == (id)self)) {
+        id activeCell = sCurrentActiveCell;
+        id cellVC = nil;
+        if ([activeCell respondsToSelector:@selector(viewController)]) {
+            cellVC = [activeCell viewController];
+        }
+        if (activeCell && (cellVC == self || activeCell == self)) {
             restoreCurrentVideoFromClearDisplay();
         }
     }
