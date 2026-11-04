@@ -110,6 +110,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"disable_telemetry"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
         [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
@@ -124,6 +125,9 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"always_show_publish_date"]) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"copy_comment_without_username"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
@@ -3907,10 +3911,47 @@ static NSString *sanitizeStringIfContainsTikTokLink(NSString *text) {
     return [result copy];
 }
 
+static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
+    if (!text || text.length == 0) return text;
+    if (![BHIManager copyCommentWithoutUsername]) return text;
+    
+    if ([text hasPrefix:@"@"]) {
+        NSRange colonRange = [text rangeOfString:@": "];
+        if (colonRange.location != NSNotFound && colonRange.location > 1 && colonRange.location < 80) {
+            NSString *prefix = [text substringToIndex:colonRange.location];
+            if (![prefix containsString:@"\n"]) {
+                return [text substringFromIndex:colonRange.location + colonRange.length];
+            }
+        }
+        
+        NSRange fwColonRange = [text rangeOfString:@"："];
+        if (fwColonRange.location != NSNotFound && fwColonRange.location > 1 && fwColonRange.location < 80) {
+            NSString *prefix = [text substringToIndex:fwColonRange.location];
+            if (![prefix containsString:@"\n"]) {
+                NSString *rem = [text substringFromIndex:fwColonRange.location + fwColonRange.length];
+                if ([rem hasPrefix:@" "]) rem = [rem substringFromIndex:1];
+                return rem;
+            }
+        }
+
+        NSRange newlineColonRange = [text rangeOfString:@":\n"];
+        if (newlineColonRange.location != NSNotFound && newlineColonRange.location > 1 && newlineColonRange.location < 80) {
+            NSString *prefix = [text substringToIndex:newlineColonRange.location];
+            if (![prefix containsString:@"\n"]) {
+                return [text substringFromIndex:newlineColonRange.location + newlineColonRange.length];
+            }
+        }
+    }
+    return text;
+}
+
 %hook UIPasteboard
 - (void)setString:(NSString *)string {
     if ([BHIManager sanitizeLinks]) {
         string = sanitizeStringIfContainsTikTokLink(string);
+    }
+    if ([BHIManager copyCommentWithoutUsername]) {
+        string = cleanCommentTextIfPrefixedWithUsername(string);
     }
     %orig(string);
 }
@@ -3928,6 +3969,9 @@ static NSString *sanitizeStringIfContainsTikTokLink(NSString *text) {
             value = sanitizeTikTokURL((NSURL *)value);
         }
     }
+    if ([BHIManager copyCommentWithoutUsername] && [value isKindOfClass:[NSString class]]) {
+        value = cleanCommentTextIfPrefixedWithUsername((NSString *)value);
+    }
     %orig(value, pasteboardType);
 }
 - (void)setItems:(NSArray *)items options:(NSDictionary *)options {
@@ -3939,7 +3983,14 @@ static NSString *sanitizeStringIfContainsTikTokLink(NSString *text) {
                 for (NSString *key in [newItem allKeys]) {
                     id val = newItem[key];
                     if ([val isKindOfClass:[NSString class]]) {
-                        newItem[key] = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                        NSString *strVal = (NSString *)val;
+                        if ([BHIManager sanitizeLinks]) {
+                            strVal = sanitizeStringIfContainsTikTokLink(strVal);
+                        }
+                        if ([BHIManager copyCommentWithoutUsername]) {
+                            strVal = cleanCommentTextIfPrefixedWithUsername(strVal);
+                        }
+                        newItem[key] = strVal;
                     } else if ([val isKindOfClass:[NSURL class]]) {
                         newItem[key] = sanitizeTikTokURL((NSURL *)val);
                     }
@@ -3958,7 +4009,14 @@ static NSString *sanitizeStringIfContainsTikTokLink(NSString *text) {
         NSMutableArray *newObjs = [NSMutableArray arrayWithCapacity:objects.count];
         for (id obj in objects) {
             if ([obj isKindOfClass:[NSString class]]) {
-                [newObjs addObject:sanitizeStringIfContainsTikTokLink((NSString *)obj)];
+                NSString *strVal = (NSString *)obj;
+                if ([BHIManager sanitizeLinks]) {
+                    strVal = sanitizeStringIfContainsTikTokLink(strVal);
+                }
+                if ([BHIManager copyCommentWithoutUsername]) {
+                    strVal = cleanCommentTextIfPrefixedWithUsername(strVal);
+                }
+                [newObjs addObject:strVal];
             } else if ([obj isKindOfClass:[NSURL class]]) {
                 [newObjs addObject:sanitizeTikTokURL((NSURL *)obj)];
             } else {

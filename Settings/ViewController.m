@@ -123,7 +123,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 18;
+        case 0: return 19;
         case 1: return 5;
         case 2: return 4;
         case 3: return 10;
@@ -215,6 +215,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Paylaşım Tarihini Her Zaman Göster" : @"Always Show Publish Date"
                                                 Detail:tr ? @"Videonun ne zaman paylaşıldığını içerik üreticisinin adının yanında tam tarih/saat olarak gösterir ve profil videolarını sıralar." : @"Shows the exact publish date and time next to the creator's name on all feeds and orders profile videos."
                                                    Key:@"always_show_publish_date"];
+            case 18:
+                return [self createSwitchCellWithTitle:tr ? @"Yorumu Kullanıcı Adı Olmadan Kopyala" : @"Copy Comment Without Username"
+                                                Detail:tr ? @"Yorum kopyalandığında başındaki @kullanıcıadı etiketini kaldırarak yalnızca yorum metnini kopyalar" : @"Copies only the comment text without the @username prefix when copying a comment"
+                                                   Key:@"copy_comment_without_username"];
             default:
                 break;
         }

@@ -196,6 +196,9 @@
 + (BOOL)alwaysShowPublishDate {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"always_show_publish_date"];
 }
++ (BOOL)copyCommentWithoutUsername {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"copy_comment_without_username"];
+}
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];
 }

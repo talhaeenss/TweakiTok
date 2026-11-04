@@ -50,6 +50,7 @@
 + (BOOL)disableScreenCaptureDetection;
 + (BOOL)disableTelemetry;
 + (BOOL)alwaysShowPublishDate;
++ (BOOL)copyCommentWithoutUsername;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;

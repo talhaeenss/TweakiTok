@@ -28,6 +28,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Action Confirmations**: Confirmation prompts before Liking, Disliking, or Following.
 - **Profile Enhancements**: Save HD profile pictures, copy bio information, view total profile video count.
 - **Always Show Publish Date**: Displays when the video was published next to the creator's name on all feeds as relative time or exact date/time, matching profile video view. Toggleable in TweakiTok settings (disabled by default).
+- **Copy Comment Without Username**: Copies only the clean comment text without the @username: prefix when copying a comment from the comments section. Toggleable in TweakiTok settings (disabled by default).
 - **Video Metadata**: Displays video upload date and exact like count.
 - **HD Uploads**: Forces uploads in high-definition quality.
 - **Extended Text Limits**: Extends bio and comment character limits.
