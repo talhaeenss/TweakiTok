@@ -3915,33 +3915,42 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
     if (!text || text.length == 0) return text;
     if (![BHIManager copyCommentWithoutUsername]) return text;
     
-    if ([text hasPrefix:@"@"]) {
-        NSRange colonRange = [text rangeOfString:@": "];
-        if (colonRange.location != NSNotFound && colonRange.location > 1 && colonRange.location < 80) {
-            NSString *prefix = [text substringToIndex:colonRange.location];
-            if (![prefix containsString:@"\n"]) {
-                return [text substringFromIndex:colonRange.location + colonRange.length];
+    if ([text hasPrefix:@"http://"] || [text hasPrefix:@"https://"] || [text hasPrefix:@"www."]) {
+        return text;
+    }
+    
+    NSArray *separators = @[@": ", @"： ", @"：", @":
+", @":"];
+    for (NSString *sep in separators) {
+        NSRange sepRange = [text rangeOfString:sep];
+        if (sepRange.location != NSNotFound) {
+            NSString *prefix = [text substringToIndex:sepRange.location];
+            
+            // Format 1: "@username: comment"
+            if ([prefix hasPrefix:@"@"] && prefix.length >= 2 && prefix.length <= 60 && ![prefix containsString:@"
+"]) {
+                NSString *remainder = [text substringFromIndex:sepRange.location + sepRange.length];
+                while ([remainder hasPrefix:@" "]) remainder = [remainder substringFromIndex:1];
+                if (remainder.length > 0) {
+                    return remainder;
+                }
             }
-        }
-        
-        NSRange fwColonRange = [text rangeOfString:@"："];
-        if (fwColonRange.location != NSNotFound && fwColonRange.location > 1 && fwColonRange.location < 80) {
-            NSString *prefix = [text substringToIndex:fwColonRange.location];
-            if (![prefix containsString:@"\n"]) {
-                NSString *rem = [text substringFromIndex:fwColonRange.location + fwColonRange.length];
-                if ([rem hasPrefix:@" "]) rem = [rem substringFromIndex:1];
-                return rem;
-            }
-        }
-
-        NSRange newlineColonRange = [text rangeOfString:@":\n"];
-        if (newlineColonRange.location != NSNotFound && newlineColonRange.location > 1 && newlineColonRange.location < 80) {
-            NSString *prefix = [text substringToIndex:newlineColonRange.location];
-            if (![prefix containsString:@"\n"]) {
-                return [text substringFromIndex:newlineColonRange.location + newlineColonRange.length];
+            
+            // Format 2: "username: comment" or "Nickname: comment"
+            if (![prefix hasPrefix:@"@"] && prefix.length >= 1 && prefix.length <= 45 && ![prefix containsString:@"
+"]) {
+                NSString *lower = [prefix lowercaseString];
+                if (![lower isEqualToString:@"http"] && ![lower isEqualToString:@"https"] && ![lower isEqualToString:@"file"] && ![lower isEqualToString:@"mailto"]) {
+                    NSString *remainder = [text substringFromIndex:sepRange.location + sepRange.length];
+                    while ([remainder hasPrefix:@" "]) remainder = [remainder substringFromIndex:1];
+                    if (remainder.length > 0) {
+                        return remainder;
+                    }
+                }
             }
         }
     }
+    
     return text;
 }
 
@@ -3954,6 +3963,42 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
         string = cleanCommentTextIfPrefixedWithUsername(string);
     }
     %orig(string);
+}
+- (void)setStrings:(NSArray *)strings {
+    if (strings) {
+        NSMutableArray *newStrings = [NSMutableArray arrayWithCapacity:strings.count];
+        for (id str in strings) {
+            if ([str isKindOfClass:[NSString class]]) {
+                NSString *val = (NSString *)str;
+                if ([BHIManager sanitizeLinks]) {
+                    val = sanitizeStringIfContainsTikTokLink(val);
+                }
+                if ([BHIManager copyCommentWithoutUsername]) {
+                    val = cleanCommentTextIfPrefixedWithUsername(val);
+                }
+                [newStrings addObject:val];
+            } else {
+                [newStrings addObject:str];
+            }
+        }
+        strings = newStrings;
+    }
+    %orig(strings);
+}
+- (void)setData:(NSData *)data forPasteboardType:(NSString *)pasteboardType {
+    if (data && ([pasteboardType isEqualToString:@"public.utf8-plain-text"] || [pasteboardType isEqualToString:@"public.plain-text"] || [pasteboardType isEqualToString:@"NSStringPboardType"])) {
+        NSString *str = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        if (str) {
+            if ([BHIManager sanitizeLinks]) {
+                str = sanitizeStringIfContainsTikTokLink(str);
+            }
+            if ([BHIManager copyCommentWithoutUsername]) {
+                str = cleanCommentTextIfPrefixedWithUsername(str);
+            }
+            data = [str dataUsingEncoding:NSUTF8StringEncoding];
+        }
+    }
+    %orig(data, pasteboardType);
 }
 - (void)setURL:(NSURL *)url {
     if ([BHIManager sanitizeLinks] && url) {
@@ -4052,11 +4097,17 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 - (BOOL)prepareWithContext:(id)context {
     if ([BHIManager sanitizeLinks] && context) {
         @try {
-            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content"]) {
+            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content", @"title", @"desc", @"description"]) {
                 if ([context respondsToSelector:NSSelectorFromString(prop)]) {
                     id val = [context valueForKey:prop];
                     if ([val isKindOfClass:[NSString class]]) {
-                        NSString *cleaned = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                        NSString *cleaned = (NSString *)val;
+                        if ([BHIManager sanitizeLinks]) {
+                            cleaned = sanitizeStringIfContainsTikTokLink(cleaned);
+                        }
+                        if ([BHIManager copyCommentWithoutUsername]) {
+                            cleaned = cleanCommentTextIfPrefixedWithUsername(cleaned);
+                        }
                         if (cleaned && ![cleaned isEqualToString:val]) {
                             [context setValue:cleaned forKey:prop];
                         }
@@ -4084,11 +4135,17 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
             sCurrentShareAweme = (id)[context model];
         }
         if ([BHIManager sanitizeLinks] && context) {
-            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content"]) {
+            for (NSString *prop in @[@"shareURL", @"targetURL", @"webURL", @"shareLink", @"content", @"title", @"desc", @"description"]) {
                 if ([context respondsToSelector:NSSelectorFromString(prop)]) {
                     id val = [context valueForKey:prop];
                     if ([val isKindOfClass:[NSString class]]) {
-                        NSString *cleaned = sanitizeStringIfContainsTikTokLink((NSString *)val);
+                        NSString *cleaned = (NSString *)val;
+                        if ([BHIManager sanitizeLinks]) {
+                            cleaned = sanitizeStringIfContainsTikTokLink(cleaned);
+                        }
+                        if ([BHIManager copyCommentWithoutUsername]) {
+                            cleaned = cleanCommentTextIfPrefixedWithUsername(cleaned);
+                        }
                         if (cleaned && ![cleaned isEqualToString:val]) {
                             [context setValue:cleaned forKey:prop];
                         }

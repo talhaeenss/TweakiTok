@@ -17,6 +17,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Story Downloads**: Download photos & videos from stories directly.
 - **Story Progress Bar & Seekbar**: Interactive draggable progress bar on stories for fast-forwarding and rewinding playback, synchronized with the master progress bar setting.
 - **Photos & Albums Download**: Download individual photos or batch-download full albums.
+- **Download Current Photo (Smart Photo Download)**: In multi-photo slide posts, dynamically reads the active photo index and offers a one-tap option to download only the currently viewed photo without cluttering the menu.
 - **Audio / Music Download**: Save music and background audio tracks.
 - **Clean Screen Mode**: Hide all UI overlays, buttons, captions, and comments.
 - **Smart Auto-Hide**: Hides all tweak buttons during 2x fast-forward long press.
@@ -40,6 +41,20 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Disable Screen Capture Detection**: Completely prevents TikTok from detecting screenshots and screen recordings in feeds, live streams, and private chat rooms. Suppresses intrusive "share this screenshot" popups and DM screenshot alerts, while keeping normal iOS screenshot and screen recording quality intact. Enabled by default; can be toggled off in settings.
 - **Disable Telemetry**: Blocks background analytics, diagnostic tracking, and telemetry data from being logged and dispatched to ByteDance / TikTok servers (AppLog, BDTracker, AWETracker). Enabled by default; can be toggled off in settings.
 - **Security Bypasses**: Bypasses jailbreak detection and environment checks.
+
+## TODO
+
+| Status | Feature |
+| :---: | :--- |
+| [ ] | Remember clear display |
+| [ ] | Keep the screen's refresh rate |
+| [ ] | Resume videos after scrolling |
+| [ ] | Translate comments |
+| [ ] | Show commenter handle and region |
+| [ ] | Show the progress bar thumbnail |
+| [ ] | Keep unsent messages |
+| [ ] | Ghost mode |
+| [ ] | Keep a streak going |
 
 ## License
 
