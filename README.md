@@ -20,7 +20,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Audio / Music Download**: Save music and background audio tracks.
 - **Clean Screen Mode**: Hide all UI overlays, buttons, captions, and comments.
 - **Smart Auto-Hide**: Hides all tweak buttons during 2x fast-forward long press.
-- **Full Turkish & English Localization**: Automatically detects and adapts to your system language.
+- **Language Support (English & Turkish)**: Switch between English and Turkish anytime from the dedicated Language setting. Changes take effect instantly throughout the tweak UI without requiring an app restart. Default language is English.
 - **Follow Status Badge**: Profile badge next to username showing whether the user follows you ("Sizi takip ediyor" / "Sizi takip etmiyor"). Automatically hidden on your own profile, toggleable in settings.
 - **Copy Actions**: Copy video description, direct video link, and audio track link with a tap.
 - **Auto-Play**: Automatically scrolls to the next video when the current one finishes.
@@ -33,9 +33,11 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **External Browser**: Option to open all links directly in Safari.
 - **Region Changer**: Built-in region selector to browse TikTok feeds from any country.
 - **App Lock**: Biometric Face ID / Touch ID and passcode protection.
-- **Privacy & Ghost Mode**: Disable read receipts and typing indicators in DMs.
+- **Privacy & Ghost Mode**: Read DMs without sending seen receipts and type messages without broadcasting typing indicators.
 - **Sanitize Sharing Links**: Removes tracking and referral parameters (such as `_t`, `_r`, user IDs, device fingerprints, and UTM parameters) from shared and copied TikTok video and profile links to protect your privacy and prevent account linking. Essential parameters, video IDs, and usernames are fully preserved to keep links functional. Enabled by default; can be toggled off anytime in TweakiTok settings.
-- **Security Bypasses**: Bypasses screenshot detection and jailbreak detection.
+- **Disable Screen Capture Detection**: Completely prevents TikTok from detecting screenshots and screen recordings in feeds, live streams, and private chat rooms. Suppresses intrusive "share this screenshot" popups and DM screenshot alerts, while keeping normal iOS screenshot and screen recording quality intact. Enabled by default; can be toggled off in settings.
+- **Disable Telemetry**: Blocks background analytics, diagnostic tracking, and telemetry data from being logged and dispatched to ByteDance / TikTok servers (AppLog, BDTracker, AWETracker). Enabled by default; can be toggled off in settings.
+- **Security Bypasses**: Bypasses jailbreak detection and environment checks.
 
 ## License
 

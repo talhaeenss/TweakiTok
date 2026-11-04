@@ -107,9 +107,21 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"extended_bio"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"extendedComment"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
+        [[NSUserDefaults standardUserDefaults] setObject:@"en" forKey:@"tweakiktok_language"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"sanitize_links"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"disable_screenshot_detection"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"disable_telemetry"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
+        [[NSUserDefaults standardUserDefaults] setObject:@"en" forKey:@"tweakiktok_language"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"download_cover_image"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"download_cover_image"];
@@ -1608,21 +1620,138 @@ static BOOL isAuthenticationShowed = FALSE;
 }
 %end
 
-%hook NSNotificationCenter // bypass screenshot detection (feature #4)
-// TikTok registers its screenshot handlers (live/chat detection, "share this screenshot"
-// popup) via UIApplicationUserDidTakeScreenshotNotification. Blocking the registration
-// means those handlers never fire: no detection toasts, no share popup, app-wide.
+%hook NSNotificationCenter // Disable screen capture and recording detection
 - (void)addObserver:(id)observer selector:(SEL)selector name:(NSString *)name object:(id)object {
-    if ([BHIManager disableScreenshotDetection] && [name isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"]) {
-        return;
+    if ([BHIManager disableScreenCaptureDetection]) {
+        if ([name isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"] ||
+            [name isEqualToString:@"UIScreenCapturedDidChangeNotification"]) {
+            return;
+        }
     }
     %orig;
 }
 - (id)addObserverForName:(id)name object:(id)object queue:(id)queue usingBlock:(id)block {
-    if ([BHIManager disableScreenshotDetection] && [name isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"]) {
-        return nil;
+    if ([BHIManager disableScreenCaptureDetection]) {
+        if ([name isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"] ||
+            [name isEqualToString:@"UIScreenCapturedDidChangeNotification"]) {
+            return nil;
+        }
     }
     return %orig;
+}
+- (void)postNotificationName:(NSNotificationName)aName object:(id)anObject userInfo:(NSDictionary *)aUserInfo {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        if ([aName isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"] ||
+            [aName isEqualToString:@"UIScreenCapturedDidChangeNotification"]) {
+            return;
+        }
+    }
+    %orig;
+}
+%end
+
+%hook UIScreen // Report screen as not captured/mirrored to prevent anti-recording blackouts
+- (BOOL)isCaptured {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return NO;
+    }
+    return %orig;
+}
+%end
+
+%hook AWEIMChatRoomScreenshotDetectionComponent // DM screenshot detection in chat rooms
+- (void)userDidTakeScreenshot:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+- (void)handleScreenshotNotification:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook TTKScreenshotBizShareManager // Suppress "share this screenshot" popups
+- (void)userDidTakeScreenshot:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+- (void)showScreenshotPopupIfNeeded:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+- (void)showScreenshotPopup:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook GBLAudienceAntiScreenshotServiceImpl // Live stream anti-screenshot/recording detection
+- (BOOL)isAntiScreenshotActive {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return NO;
+    }
+    return %orig;
+}
+- (void)didTakeScreenshot:(id)arg1 {
+    if ([BHIManager disableScreenCaptureDetection]) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook AppLog // Disable Telemetry & Analytics
++ (void)event:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
+}
++ (void)eventV3:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook BDTracker // Disable Telemetry & Tracking
++ (void)event:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
+}
++ (void)eventV3:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
+}
++ (void)trackEvent:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
+}
+%end
+
+%hook AWETracker // Disable Telemetry & Event logging
++ (void)trackEvent:(NSString *)event params:(NSDictionary *)params {
+    if ([BHIManager disableTelemetry]) {
+        return;
+    }
+    %orig;
 }
 %end
 

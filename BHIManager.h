@@ -47,6 +47,8 @@
 + (BOOL)extendedComment;
 + (BOOL)appLock;
 + (BOOL)disableScreenshotDetection;
++ (BOOL)disableScreenCaptureDetection;
++ (BOOL)disableTelemetry;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;
@@ -58,6 +60,8 @@
 + (BOOL)isEmpty:(NSURL *)url;
 + (NSString *)getDownloadingPersent:(float)per;
 + (void)saveMedia:(id)item fileExtension:(id)fileExtension;
++ (NSString *)currentLanguage;
++ (void)setLanguage:(NSString *)lang;
 + (BOOL)isTurkish;
 + (NSString *)localizedString:(NSString *)en tr:(NSString *)tr;
 @end

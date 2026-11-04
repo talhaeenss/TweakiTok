@@ -85,7 +85,7 @@
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 11;
+    return 12;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -113,6 +113,8 @@
             return tr ? @"Çevrimdışı Videolar" : @"Offline Videos";
         case 10:
             return tr ? @"Deneysel (Labs)" : @"Labs";
+        case 11:
+            return tr ? @"Dil (Language)" : @"Language (Dil)";
         default:
             break;
     }
@@ -124,14 +126,15 @@
         case 0: return 17;
         case 1: return 5;
         case 2: return 4;
-        case 3: return 11;
+        case 3: return 10;
         case 4: return 4;
         case 5: return 2;
         case 6: return 2;
         case 7: return 1;
-        case 8: return 3;
+        case 8: return 5;
         case 9: return 1;
         case 10: return 1;
+        case 11: return 1;
         default: return 0;
     }
 }
@@ -364,10 +367,6 @@
                 return [self createSwitchCellWithTitle:tr ? @"FLEX'i Etkinleştir" : @"Enable Flex"
                                                 Detail:tr ? @"Geliştirici konsolunu açar (Sadece geliştiriciler için)" : @"Developers Only, DON'T touch it if you don't know what you are doing."
                                                    Key:@"flex_enebaled"];
-            case 10:
-                return [self createSwitchCellWithTitle:tr ? @"Ekran Görüntüsü Korumasını Engelle" : @"Bypass Screenshot Detection"
-                                                Detail:tr ? @"Ekran görüntüsü alındığında bildirim ve paylaşım penceresini engeller" : @"Take screenshots freely; suppress screenshot notifications and the share popup"
-                                                   Key:@"disable_screenshot_detection"];
             default:
                 break;
         }
@@ -473,6 +472,14 @@
                 return [self createSwitchCellWithTitle:tr ? @"Paylaşım Bağlantılarını Temizle" : @"Sanitize sharing links"
                                                 Detail:tr ? @"Gizliliğinizi korumak için paylaşılan TikTok bağlantılarındaki izleme parametrelerini kaldırır." : @"Removes tracking parameters from shared TikTok links to protect your privacy."
                                                    Key:@"sanitize_links"];
+            case 3:
+                return [self createSwitchCellWithTitle:tr ? @"Ekran Yakalama Algılamasını Kapat" : @"Disable screen capture detection"
+                                                Detail:tr ? @"TikTok'un ekran görüntüsü ve ekran kaydı alındığını algılamasını engeller." : @"Prevents TikTok from detecting screenshots and screen recordings."
+                                                   Key:@"disable_screenshot_detection"];
+            case 4:
+                return [self createSwitchCellWithTitle:tr ? @"Telemetriyi Devre Dışı Bırak" : @"Disable telemetry"
+                                                Detail:tr ? @"ByteDance sunucularına gönderilen analitik ve tanılama verilerini engeller." : @"Blocks analytics and tracking data sent to ByteDance servers."
+                                                   Key:@"disable_telemetry"];
             default:
                 break;
         }
@@ -504,6 +511,24 @@
                 cell.detailTextLabel.text = tr ? @"TikTok dahili A/B bayraklarını görüntüleyin ve değiştirin" : @"View & override TikTok's internal A/B flags";
                 cell.imageView.image = [UIImage systemImageNamed:@"flask"];
                 cell.detailTextLabel.textColor = [UIColor systemGrayColor];
+                return cell;
+            }
+            default:
+                break;
+        }
+    }
+    else if (indexPath.section == 11) {
+        switch (indexPath.row) {
+            case 0: {
+                UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+                cell.textLabel.text = @"Language / Dil";
+                cell.detailTextLabel.text = tr ? @"Arayüz dili: Türkçe (Değiştirmek için dokunun)" : @"Interface language: English (Tap to change)";
+                cell.detailTextLabel.textColor = [UIColor systemGrayColor];
+                
+                UISegmentedControl *langSeg = [[UISegmentedControl alloc] initWithItems:@[@"English", @"Türkçe"]];
+                langSeg.selectedSegmentIndex = tr ? 1 : 0;
+                [langSeg addTarget:self action:@selector(languageSegmentChanged:) forControlEvents:UIControlEventValueChanged];
+                cell.accessoryView = langSeg;
                 return cell;
             }
             default:
@@ -561,6 +586,37 @@
         LabsViewController *labs = [[LabsViewController alloc] init];
         [self presentModalNavWithRoot:labs];
     }
+    else if (indexPath.section == 11 && indexPath.row == 0){
+        BOOL tr = [BHIManager isTurkish];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Language / Dil" message:tr ? @"Lütfen mod arayüzü için bir dil seçin:" : @"Please select an interface language:" preferredStyle:UIAlertControllerStyleActionSheet];
+        [alert addAction:[UIAlertAction actionWithTitle:@"English" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            [BHIManager setLanguage:@"en"];
+            self.title = @"TweakiTok Settings";
+            self.navigationItem.rightBarButtonItem.title = @"Close";
+            [self.staticTable reloadData];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Türkçe" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            [BHIManager setLanguage:@"tr"];
+            self.title = @"TweakiTok Ayarları";
+            self.navigationItem.rightBarButtonItem.title = @"Kapat";
+            [self.staticTable reloadData];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:tr ? @"İptal" : @"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        if (alert.popoverPresentationController) {
+            UITableViewCell *selectedCell = [tableView cellForRowAtIndexPath:indexPath];
+            alert.popoverPresentationController.sourceView = selectedCell ?: self.view;
+            alert.popoverPresentationController.sourceRect = selectedCell ? selectedCell.bounds : self.view.bounds;
+        }
+        [self presentViewController:alert animated:YES completion:nil];
+    }
+}
+
+- (void)languageSegmentChanged:(UISegmentedControl *)sender {
+    NSString *newLang = sender.selectedSegmentIndex == 1 ? @"tr" : @"en";
+    [BHIManager setLanguage:newLang];
+    self.title = [BHIManager isTurkish] ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
+    self.navigationItem.rightBarButtonItem.title = [BHIManager isTurkish] ? @"Kapat" : @"Close";
+    [self.staticTable reloadData];
 }
 
 - (UITableViewCell *)createSwitchCellWithTitle:(NSString *)title Detail:(NSString*)detail Key:(NSString*)key {
@@ -572,7 +628,7 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults objectForKey:key] != nil) {
         switchView.on = [defaults boolForKey:key];
-    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"] || [key isEqualToString:@"sanitize_links"]) {
+    } else if ([key isEqualToString:@"hide_ads"] || [key isEqualToString:@"download_button"] || [key isEqualToString:@"download_story"] || [key isEqualToString:@"live_record_button"] || [key isEqualToString:@"remove_watermark"] || [key isEqualToString:@"upload_hd"] || [key isEqualToString:@"download_cover_image"] || [key isEqualToString:@"follow_status_badge"] || [key isEqualToString:@"show_porgress_bar"] || [key isEqualToString:@"sanitize_links"] || [key isEqualToString:@"disable_screenshot_detection"] || [key isEqualToString:@"disable_telemetry"]) {
         switchView.on = YES;
     } else {
         switchView.on = NO;

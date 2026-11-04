@@ -182,7 +182,19 @@
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"padlock"];
 }
 + (BOOL)disableScreenshotDetection {
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"disable_screenshot_detection"] == nil) {
+        return YES;
+    }
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"disable_screenshot_detection"];
+}
++ (BOOL)disableScreenCaptureDetection {
+    return [self disableScreenshotDetection];
+}
++ (BOOL)disableTelemetry {
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:@"disable_telemetry"] == nil) {
+        return YES;
+    }
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"disable_telemetry"];
 }
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];
@@ -410,20 +422,23 @@
 + (NSDictionary *)abOverrides {
     return [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"ab_overrides"];
 }
++ (NSString *)currentLanguage {
+    NSString *lang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_language"];
+    if (lang && lang.length > 0) {
+        return lang;
+    }
+    return @"en";
+}
+
++ (void)setLanguage:(NSString *)lang {
+    if (!lang || lang.length == 0) lang = @"en";
+    [[NSUserDefaults standardUserDefaults] setObject:lang forKey:@"tweakiktok_language"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokLanguageDidChangeNotification" object:lang];
+}
+
 + (BOOL)isTurkish {
-    NSString *appLang = [[NSUserDefaults standardUserDefaults] stringForKey:@"current_i18n_language"];
-    if (appLang && [appLang hasPrefix:@"tr"]) {
-        return YES;
-    }
-    NSString *appLang2 = [[NSUserDefaults standardUserDefaults] stringForKey:@"app_language"];
-    if (appLang2 && [appLang2 hasPrefix:@"tr"]) {
-        return YES;
-    }
-    NSArray *languages = [NSLocale preferredLanguages];
-    if (languages.count > 0 && [[languages firstObject] hasPrefix:@"tr"]) {
-        return YES;
-    }
-    return NO;
+    return [[self currentLanguage] isEqualToString:@"tr"];
 }
 
 + (NSString *)localizedString:(NSString *)en tr:(NSString *)tr {
