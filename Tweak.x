@@ -109,7 +109,8 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_screenshot_detection"];
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
-        [[NSUserDefaults standardUserDefaults] setObject:@"en" forKey:@"tweakiktok_language"];
+        NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
+        [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"sanitize_links"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
@@ -121,7 +122,8 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"disable_telemetry"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
-        [[NSUserDefaults standardUserDefaults] setObject:@"en" forKey:@"tweakiktok_language"];
+        NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
+        [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"download_cover_image"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"download_cover_image"];
@@ -1634,19 +1636,15 @@ static BOOL isAuthenticationShowed = FALSE;
     if ([BHIManager disableScreenCaptureDetection]) {
         if ([name isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"] ||
             [name isEqualToString:@"UIScreenCapturedDidChangeNotification"]) {
-            return nil;
+            // Live stream (IESLive) and other components store returned tokens in an NSMutableArray.
+            // Returning nil causes -[NSMutableArray addObject:nil] to crash immediately.
+            // Passing an empty block returns a valid token safely while completely silencing the handler.
+            return %orig(name, object, queue, ^(NSNotification * _Nonnull note) {
+                // Screenshot / screen capture notification safely suppressed
+            });
         }
     }
     return %orig;
-}
-- (void)postNotificationName:(NSNotificationName)aName object:(id)anObject userInfo:(NSDictionary *)aUserInfo {
-    if ([BHIManager disableScreenCaptureDetection]) {
-        if ([aName isEqualToString:@"UIApplicationUserDidTakeScreenshotNotification"] ||
-            [aName isEqualToString:@"UIScreenCapturedDidChangeNotification"]) {
-            return;
-        }
-    }
-    %orig;
 }
 %end
 
@@ -1688,21 +1686,6 @@ static BOOL isAuthenticationShowed = FALSE;
     %orig;
 }
 - (void)showScreenshotPopup:(id)arg1 {
-    if ([BHIManager disableScreenCaptureDetection]) {
-        return;
-    }
-    %orig;
-}
-%end
-
-%hook GBLAudienceAntiScreenshotServiceImpl // Live stream anti-screenshot/recording detection
-- (BOOL)isAntiScreenshotActive {
-    if ([BHIManager disableScreenCaptureDetection]) {
-        return NO;
-    }
-    return %orig;
-}
-- (void)didTakeScreenshot:(id)arg1 {
     if ([BHIManager disableScreenCaptureDetection]) {
         return;
     }

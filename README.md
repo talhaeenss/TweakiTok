@@ -20,7 +20,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 - **Audio / Music Download**: Save music and background audio tracks.
 - **Clean Screen Mode**: Hide all UI overlays, buttons, captions, and comments.
 - **Smart Auto-Hide**: Hides all tweak buttons during 2x fast-forward long press.
-- **Language Support (English & Turkish)**: Switch between English and Turkish anytime from the dedicated Language setting. Changes take effect instantly throughout the tweak UI without requiring an app restart. Default language is English.
+- **Language Support (English & Turkish)**: Automatically adapts to your TikTok app language (defaults to Turkish if TikTok is Turkish, English otherwise). You can switch between English and Turkish anytime from the dedicated Language setting; changes take effect instantly throughout the tweak UI without requiring an app restart.
 - **Follow Status Badge**: Profile badge next to username showing whether the user follows you ("Sizi takip ediyor" / "Sizi takip etmiyor"). Automatically hidden on your own profile, toggleable in settings.
 - **Copy Actions**: Copy video description, direct video link, and audio track link with a tap.
 - **Auto-Play**: Automatically scrolls to the next video when the current one finishes.

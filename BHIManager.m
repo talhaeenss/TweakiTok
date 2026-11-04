@@ -422,17 +422,46 @@
 + (NSDictionary *)abOverrides {
     return [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"ab_overrides"];
 }
-+ (NSString *)currentLanguage {
-    NSString *lang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_language"];
-    if (lang && lang.length > 0) {
-        return lang;
++ (NSString *)tiktokLanguage {
+    NSString *appLang = [[NSUserDefaults standardUserDefaults] stringForKey:@"current_i18n_language"];
+    if (appLang && appLang.length >= 2) {
+        return [appLang lowercaseString];
+    }
+    NSString *appLang2 = [[NSUserDefaults standardUserDefaults] stringForKey:@"app_language"];
+    if (appLang2 && appLang2.length >= 2) {
+        return [appLang2 lowercaseString];
+    }
+    NSString *appLang3 = [[NSUserDefaults standardUserDefaults] stringForKey:@"kTYLanguageKey"];
+    if (appLang3 && appLang3.length >= 2) {
+        return [appLang3 lowercaseString];
+    }
+    NSArray *languages = [NSLocale preferredLanguages];
+    if (languages.count > 0) {
+        return [[languages firstObject] lowercaseString];
     }
     return @"en";
+}
+
++ (BOOL)isTikTokLanguageTurkish {
+    NSString *lang = [self tiktokLanguage];
+    return [lang hasPrefix:@"tr"];
+}
+
++ (NSString *)currentLanguage {
+    BOOL isCustomized = [[NSUserDefaults standardUserDefaults] boolForKey:@"tweakiktok_language_customized"];
+    if (isCustomized) {
+        NSString *lang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_language"];
+        if (lang && lang.length > 0) {
+            return lang;
+        }
+    }
+    return [self isTikTokLanguageTurkish] ? @"tr" : @"en";
 }
 
 + (void)setLanguage:(NSString *)lang {
     if (!lang || lang.length == 0) lang = @"en";
     [[NSUserDefaults standardUserDefaults] setObject:lang forKey:@"tweakiktok_language"];
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"tweakiktok_language_customized"];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokLanguageDidChangeNotification" object:lang];
 }

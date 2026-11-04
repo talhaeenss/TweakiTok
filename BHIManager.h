@@ -60,6 +60,8 @@
 + (BOOL)isEmpty:(NSURL *)url;
 + (NSString *)getDownloadingPersent:(float)per;
 + (void)saveMedia:(id)item fileExtension:(id)fileExtension;
++ (NSString *)tiktokLanguage;
++ (BOOL)isTikTokLanguageTurkish;
 + (NSString *)currentLanguage;
 + (void)setLanguage:(NSString *)lang;
 + (BOOL)isTurkish;
