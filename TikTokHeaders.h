@@ -150,10 +150,22 @@
 @interface TTVideoEngine : NSObject
 - (void)play;
 - (void)pause;
+- (void)stop;
 - (NSTimeInterval)currentPlaybackTime;
 - (NSTimeInterval)duration;
 - (void)setCurrentPlaybackTime:(NSTimeInterval)time complete:(void(^)(BOOL success))complete;
 - (void)setCurrentPlaybackTime:(NSTimeInterval)time;
+- (void)playerIsPrepared;
+- (void)playerIsReadyToPlay;
+- (void)playerReadyToDisplay;
+- (void)playerShowedFirstAVSyncFrame;
+- (void)playbackStateDidChange:(NSInteger)state;
+@end
+
+@interface AWEPlayInteractionProgressManager : NSObject
+- (void)updateProgressSliderWithTime:(double)time totalDuration:(double)duration;
+- (void)progressSliderTouchEnded:(id)arg1 isFullScreenSeekGesture:(BOOL)arg2;
+- (void)progressSliderValueChanged:(id)arg1;
 @end
 
 
