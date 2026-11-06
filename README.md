@@ -27,6 +27,7 @@ An awesome, modern TikTok tweak for iOS.
 - **Always Show Publish Date**: Displays video publish date next to username on all feeds.
 - **Copy Comment Without Username**: Copies comment text without the author's handle.
 - **Remember Clear Display**: Keeps clear display mode active when scrolling across videos.
+- **Resume Videos After Scrolling**: Resumes playback from where you left off when returning to a previously watched video.
 - **Video Metadata**: Shows upload date and like count on profile grids.
 - **HD Uploads**: Forces video uploads in high definition.
 - **Extended Text Limits**: Removes character limits for bio and comments.
@@ -54,7 +55,7 @@ Ready-to-install `.deb` packages and modded `.ipa` releases are automatically co
 
 - [x] **Remember clear display**: Persist clean screen mode across videos.
 - [ ] **Keep the screen's refresh rate**: Prevent dropping 90/120 Hz display rate.
-- [ ] **Resume videos after scrolling**: Resume playback from previous position.
+- [x] **Resume videos after scrolling**: Resume playback from previous position.
 - [ ] **Translate comments**: Automatically translate comments on load.
 - [ ] **Show commenter handle and region**: Show @handle and country flag in comments.
 - [ ] **Show the progress bar thumbnail**: Show preview thumbnail while scrubbing seekbar.

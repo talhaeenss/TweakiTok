@@ -8,6 +8,9 @@ static __weak AWEPlayVideoPlayerController *sCurrentActivePlayerController = nil
 static __weak TTVideoEngine *sCurrentActiveVideoEngine = nil;
 static __weak AWEAwemeModel *sCurrentShareAweme = nil;
 static __weak TTKStoryDetailTableViewCell *sCurrentActiveStoryCell = nil;
+static NSMutableDictionary<NSString *, NSNumber *> *sSavedPlaybackPositions = nil;
+static NSString *sLastResumedItemID = nil;
+static uint64_t sResumeSeq = 0;
 
 @implementation BHTMenuButton
 - (void)setHighlighted:(BOOL)highlighted {
@@ -114,6 +117,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"always_show_publish_date"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"resume_video_playback"];
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
         [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
@@ -134,6 +138,9 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"remember_clear_display"]) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"resume_video_playback"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"resume_video_playback"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
@@ -1630,13 +1637,218 @@ static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
     return [BHIManager progressBar] || %orig;
 }
 %end
+static NSString *bht_getVideoItemID(AWEPlayVideoPlayerController *player) {
+    if (!player) return nil;
+    if ([player respondsToSelector:@selector(container)]) {
+        UIViewController *c = [player container];
+        if (c && [c respondsToSelector:@selector(model)]) {
+            AWEAwemeModel *m = [(id)c model];
+            if (m && [m respondsToSelector:@selector(itemID)] && m.itemID.length > 0) {
+                return m.itemID;
+            }
+        }
+        if (c && [c respondsToSelector:@selector(awemeModel)]) {
+            AWEAwemeModel *m = [(id)c performSelector:@selector(awemeModel)];
+            if (m && [m respondsToSelector:@selector(itemID)] && m.itemID.length > 0) {
+                return m.itemID;
+            }
+        }
+        if (c && [c respondsToSelector:@selector(viewController)]) {
+            UIViewController *vc = [(id)c viewController];
+            if (vc && [vc respondsToSelector:@selector(model)]) {
+                AWEAwemeModel *m = [(id)vc model];
+                if (m && [m respondsToSelector:@selector(itemID)] && m.itemID.length > 0) {
+                    return m.itemID;
+                }
+            }
+        }
+    }
+    if ([player respondsToSelector:@selector(awemeModel)]) {
+        AWEAwemeModel *m = [player performSelector:@selector(awemeModel)];
+        if (m && [m respondsToSelector:@selector(itemID)] && m.itemID.length > 0) {
+            return m.itemID;
+        }
+    }
+    if ([player respondsToSelector:@selector(model)]) {
+        AWEAwemeModel *m = [player performSelector:@selector(model)];
+        if (m && [m respondsToSelector:@selector(itemID)] && m.itemID.length > 0) {
+            return m.itemID;
+        }
+    }
+    return nil;
+}
+
+static void bht_savePlaybackPosition(AWEPlayVideoPlayerController *player) {
+    if (![BHIManager resumeVideoPlayback] || !player) return;
+    
+    NSString *itemID = bht_getVideoItemID(player);
+    if (!itemID || itemID.length == 0) return;
+    
+    double curr = 0;
+    if ([player respondsToSelector:@selector(currentPlaybackTime)]) {
+        curr = [player currentPlaybackTime];
+    } else if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(currentPlaybackTime)]) {
+        curr = [sCurrentActiveVideoEngine currentPlaybackTime];
+    }
+    
+    double total = 0;
+    if ([player respondsToSelector:@selector(totalDuration)]) {
+        total = [player totalDuration];
+    } else if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(duration)]) {
+        total = [sCurrentActiveVideoEngine duration];
+    }
+    
+    if (curr > 1.0 && (total <= 0 || curr < (total - 1.0))) {
+        if (!sSavedPlaybackPositions) {
+            sSavedPlaybackPositions = [[NSMutableDictionary alloc] init];
+        }
+        if (sSavedPlaybackPositions.count > 200) {
+            NSArray *keys = [sSavedPlaybackPositions allKeys];
+            for (NSUInteger i = 0; i < 100 && i < keys.count; i++) {
+                [sSavedPlaybackPositions removeObjectForKey:keys[i]];
+            }
+        }
+        sSavedPlaybackPositions[itemID] = @(curr);
+    } else if (total > 0 && curr >= (total - 1.0)) {
+        if (sSavedPlaybackPositions) {
+            [sSavedPlaybackPositions removeObjectForKey:itemID];
+        }
+    }
+}
+
+static void bht_seekPlayerToTime(AWEPlayVideoPlayerController *player, double targetTime) {
+    if (!player || targetTime <= 0) return;
+    
+    if ([player respondsToSelector:@selector(seekToTime:completion:)]) {
+        [player seekToTime:targetTime completion:nil];
+        return;
+    }
+    if ([player respondsToSelector:@selector(setPlayerSeekTime:completion:)]) {
+        [player setPlayerSeekTime:targetTime completion:nil];
+        return;
+    }
+    if ([player respondsToSelector:@selector(totalDuration)] && [player respondsToSelector:@selector(seekToPercent:completeBlock:)]) {
+        double total = [player totalDuration];
+        if (total > 0) {
+            double pct = targetTime / total;
+            if (pct >= 0.0 && pct < 1.0) {
+                [player seekToPercent:pct completeBlock:nil];
+                return;
+            }
+        }
+    }
+    if (sCurrentActiveVideoEngine) {
+        if ([sCurrentActiveVideoEngine respondsToSelector:@selector(setCurrentPlaybackTime:complete:)]) {
+            [sCurrentActiveVideoEngine setCurrentPlaybackTime:targetTime complete:nil];
+        } else if ([sCurrentActiveVideoEngine respondsToSelector:@selector(setCurrentPlaybackTime:)]) {
+            [sCurrentActiveVideoEngine setCurrentPlaybackTime:targetTime];
+        }
+    }
+}
+
+static void bht_resumePlaybackIfNeeded(AWEPlayVideoPlayerController *player) {
+    if (![BHIManager resumeVideoPlayback] || !player) return;
+    
+    NSString *itemID = bht_getVideoItemID(player);
+    if (!itemID || itemID.length == 0) return;
+    
+    if ([sLastResumedItemID isEqualToString:itemID]) return;
+    
+    NSNumber *savedTimeNum = sSavedPlaybackPositions[itemID];
+    if (!savedTimeNum) return;
+    
+    double targetTime = [savedTimeNum doubleValue];
+    if (targetTime <= 1.0) return;
+    
+    double total = 0;
+    if ([player respondsToSelector:@selector(totalDuration)]) {
+        total = [player totalDuration];
+    } else if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(duration)]) {
+        total = [sCurrentActiveVideoEngine duration];
+    }
+    if (total > 0 && targetTime >= (total - 1.0)) {
+        if (sSavedPlaybackPositions) {
+            [sSavedPlaybackPositions removeObjectForKey:itemID];
+        }
+        return;
+    }
+    
+    sLastResumedItemID = [itemID copy];
+    uint64_t currentSeq = ++sResumeSeq;
+    
+    bht_seekPlayerToTime(player, targetTime);
+    
+    __weak typeof(player) weakPlayer = player;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (sResumeSeq != currentSeq) return;
+        AWEPlayVideoPlayerController *strongPlayer = weakPlayer;
+        if (!strongPlayer || strongPlayer != sCurrentActivePlayerController) return;
+        
+        NSString *currID = bht_getVideoItemID(strongPlayer);
+        if (![currID isEqualToString:itemID]) return;
+        
+        double curr = 0;
+        if ([strongPlayer respondsToSelector:@selector(currentPlaybackTime)]) {
+            curr = [strongPlayer currentPlaybackTime];
+        } else if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(currentPlaybackTime)]) {
+            curr = [sCurrentActiveVideoEngine currentPlaybackTime];
+        }
+        
+        if (curr < 1.0 && targetTime >= 1.5) {
+            bht_seekPlayerToTime(strongPlayer, targetTime);
+        }
+    });
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.30 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (sResumeSeq != currentSeq) return;
+        AWEPlayVideoPlayerController *strongPlayer = weakPlayer;
+        if (!strongPlayer || strongPlayer != sCurrentActivePlayerController) return;
+        
+        NSString *currID = bht_getVideoItemID(strongPlayer);
+        if (![currID isEqualToString:itemID]) return;
+        
+        double curr = 0;
+        if ([strongPlayer respondsToSelector:@selector(currentPlaybackTime)]) {
+            curr = [strongPlayer currentPlaybackTime];
+        } else if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(currentPlaybackTime)]) {
+            curr = [sCurrentActiveVideoEngine currentPlaybackTime];
+        }
+        
+        if (curr < 1.0 && targetTime >= 1.5) {
+            bht_seekPlayerToTime(strongPlayer, targetTime);
+        }
+    });
+}
+
 %hook AWEPlayVideoPlayerController // auto play next video and stop looping video
 - (void)play {
+    if (sCurrentActivePlayerController && sCurrentActivePlayerController != self) {
+        bht_savePlaybackPosition(sCurrentActivePlayerController);
+    }
     sCurrentActivePlayerController = self;
     %orig;
+    if ([BHIManager resumeVideoPlayback]) {
+        bht_resumePlaybackIfNeeded(self);
+    }
 }
 - (void)updatePlayerIfNeeded {
     sCurrentActivePlayerController = self;
+    %orig;
+}
+- (void)pause {
+    bht_savePlaybackPosition(self);
+    %orig;
+}
+- (void)stop {
+    bht_savePlaybackPosition(self);
+    %orig;
+}
+- (void)reset {
+    bht_savePlaybackPosition(self);
+    %orig;
+}
+- (void)containerDidEndDisplaying {
+    bht_savePlaybackPosition(self);
     %orig;
 }
 - (void)playerWillLoopPlaying:(id)arg1 {
@@ -1645,6 +1857,13 @@ static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
             [((AWENewFeedTableViewController *)self.container.parentViewController) scrollToNextVideo];
             return;
         }
+    }
+    if ([BHIManager resumeVideoPlayback]) {
+        NSString *itemID = bht_getVideoItemID(self);
+        if (itemID.length > 0 && sSavedPlaybackPositions) {
+            [sSavedPlaybackPositions removeObjectForKey:itemID];
+        }
+        sLastResumedItemID = nil;
     }
     %orig;
 }
@@ -2068,6 +2287,13 @@ static inline BOOL bht_isEssentialAppEvent(NSString *event) {
 %end
 %hook AWEPlayVideoPlayerController
 - (void)containerDidFullyDisplayWithReason:(NSInteger)arg1 {
+    if (sCurrentActivePlayerController && sCurrentActivePlayerController != self) {
+        bht_savePlaybackPosition(sCurrentActivePlayerController);
+    }
+    sCurrentActivePlayerController = self;
+    if ([BHIManager resumeVideoPlayback]) {
+        bht_resumePlaybackIfNeeded(self);
+    }
     if ([BHIManager rememberClearDisplay] && sIsClearDisplayActive) {
         UIViewController *c = [self container];
         if (c) {
@@ -4548,6 +4774,12 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
             }
             sIsHandlingClearDisplay = NO;
         }
+    }
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig(animated);
+    if ([BHIManager resumeVideoPlayback] && sCurrentActivePlayerController) {
+        bht_savePlaybackPosition(sCurrentActivePlayerController);
     }
 }
 %end

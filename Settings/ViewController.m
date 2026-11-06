@@ -123,7 +123,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 20;
+        case 0: return 21;
         case 1: return 5;
         case 2: return 4;
         case 3: return 10;
@@ -223,6 +223,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Temiz Ekran Modunu Hatırla" : @"Remember Clear Display"
                                                 Detail:tr ? @"Ekranı temizleme (butonları gizleme) modunu sonraki videoya geçtiğinde de açık tutar" : @"Keeps clear display mode active when scrolling to the next video"
                                                    Key:@"remember_clear_display"];
+            case 20:
+                return [self createSwitchCellWithTitle:tr ? @"Kaldığı Yerden Devam Et" : @"Resume Videos After Scrolling"
+                                                Detail:tr ? @"Bir videodan ayrılıp geri dönüldüğünde videoyu baştan başlatmak yerine en son kalınan süreden devam ettirir" : @"Resume playback from the previous position when returning to a video"
+                                                   Key:@"resume_video_playback"];
             default:
                 break;
         }

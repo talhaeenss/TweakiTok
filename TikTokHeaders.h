@@ -465,9 +465,14 @@
 
 @interface AWEPlayVideoPlayerController : NSObject
 @property(nonatomic) AWEAwemeBaseViewController *container;
+@property(nonatomic, strong) AWEAwemeModel *model;
+- (AWEAwemeModel *)awemeModel;
 - (void)setPlayerSeekTime:(double)arg1 completion:(id)arg2;
 - (void)play;
 - (void)pause;
+- (void)stop;
+- (void)reset;
+- (void)containerDidEndDisplaying;
 - (double)currentPlaybackTime;
 - (double)totalDuration;
 - (void)seekToTime:(double)time completion:(void(^)(BOOL))completion;

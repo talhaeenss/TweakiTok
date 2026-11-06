@@ -202,6 +202,9 @@
 + (BOOL)rememberClearDisplay {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"remember_clear_display"];
 }
++ (BOOL)resumeVideoPlayback {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"resume_video_playback"];
+}
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];
 }

@@ -52,6 +52,7 @@
 + (BOOL)alwaysShowPublishDate;
 + (BOOL)copyCommentWithoutUsername;
 + (BOOL)rememberClearDisplay;
++ (BOOL)resumeVideoPlayback;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;
