@@ -123,7 +123,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     switch (section) {
-        case 0: return 21;
+        case 0: return 22;
         case 1: return 5;
         case 2: return 4;
         case 3: return 10;
@@ -227,6 +227,10 @@
                 return [self createSwitchCellWithTitle:tr ? @"Kaldığı Yerden Devam Et" : @"Resume Videos After Scrolling"
                                                 Detail:tr ? @"Bir videodan ayrılıp geri dönüldüğünde videoyu baştan başlatmak yerine en son kalınan süreden devam ettirir" : @"Resume playback from the previous position when returning to a video"
                                                    Key:@"resume_video_playback"];
+            case 21:
+                return [self createSwitchCellWithTitle:tr ? @"Ekran Yenileme Hızını Koru (120 Hz)" : @"Keep Screen Refresh Rate (120 Hz)"
+                                                Detail:tr ? @"Cihazın desteklediği maksimum yenileme hızını (120 Hz) sürekli aktif tutar, video ve hikayelerde hız düşmesini engeller. Şarjınız daha hızlı tükenir." : @"Keeps the screen refresh rate locked at the device maximum (120 Hz), preventing drops in videos and stories. Drains battery faster."
+                                                   Key:@"keep_refresh_rate"];
             default:
                 break;
         }
@@ -667,6 +671,9 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setBool:sender.isOn forKey:key];
     [defaults synchronize];
+    if ([key isEqualToString:@"keep_refresh_rate"]) {
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokRefreshRateDidChangeNotification" object:nil];
+    }
     [BHIManager showRestartNotification];
 }
 

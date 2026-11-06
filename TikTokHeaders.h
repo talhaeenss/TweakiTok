@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <QuartzCore/QuartzCore.h>
 #import <SafariServices/SafariServices.h>
 #import "BHIManager.h"
 #import "SecurityViewController.h"

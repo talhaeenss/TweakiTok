@@ -50,6 +50,95 @@ static void bht_stopPlaybackTracker(void);
 }
 @end
 
+@interface BHTRefreshRateManager : NSObject
+@property (nonatomic, strong) CADisplayLink *displayLink;
++ (instancetype)sharedManager;
+- (void)updateRefreshRate;
+- (void)handleAppDidBecomeActive;
+- (void)handleAppDidEnterBackground;
+@end
+
+@implementation BHTRefreshRateManager
++ (instancetype)sharedManager {
+    static BHTRefreshRateManager *sManager = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sManager = [[BHTRefreshRateManager alloc] init];
+    });
+    return sManager;
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handleAppDidBecomeActive)
+                                                     name:UIApplicationDidBecomeActiveNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handleAppDidEnterBackground)
+                                                     name:UIApplicationDidEnterBackgroundNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(updateRefreshRate)
+                                                     name:@"TweakiTokRefreshRateDidChangeNotification"
+                                                   object:nil];
+    }
+    return self;
+}
+
+- (void)onDisplayTick:(CADisplayLink *)link {
+    // Empty tick method: continuous active CADisplayLink scheduled in NSRunLoopCommonModes
+    // forces QuartzCore WindowServer compositor to lock at maximum refresh rate (120 Hz).
+}
+
+- (void)updateRefreshRate {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (![BHIManager keepRefreshRate]) {
+            if (self.displayLink) {
+                [self.displayLink invalidate];
+                self.displayLink = nil;
+            }
+            return;
+        }
+
+        NSInteger maxFps = [UIScreen mainScreen].maximumFramesPerSecond;
+        if (maxFps < 60) {
+            maxFps = 60;
+        }
+
+        if (!self.displayLink) {
+            self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(onDisplayTick:)];
+            if (@available(iOS 15.0, *)) {
+                self.displayLink.preferredFrameRateRange = CAFrameRateRangeMake((float)maxFps, (float)maxFps, (float)maxFps);
+            } else {
+                self.displayLink.preferredFramesPerSecond = maxFps;
+            }
+            [self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+        } else {
+            self.displayLink.paused = NO;
+            if (@available(iOS 15.0, *)) {
+                self.displayLink.preferredFrameRateRange = CAFrameRateRangeMake((float)maxFps, (float)maxFps, (float)maxFps);
+            } else {
+                self.displayLink.preferredFramesPerSecond = maxFps;
+            }
+        }
+    });
+}
+
+- (void)handleAppDidBecomeActive {
+    [self updateRefreshRate];
+}
+
+- (void)handleAppDidEnterBackground {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.displayLink) {
+            self.displayLink.paused = YES;
+        }
+    });
+}
+@end
+
 
 
 %hook TTKFeedInteractionContainerElement
@@ -132,6 +221,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"copy_comment_without_username"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"resume_video_playback"];
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"keep_refresh_rate"];
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
         [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
     }
@@ -155,6 +245,9 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"resume_video_playback"]) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"resume_video_playback"];
+    }
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"keep_refresh_rate"]) {
+        [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"keep_refresh_rate"];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
         NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
@@ -188,12 +281,14 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         }
     }
     [BHIManager cleanCache];
+    [[BHTRefreshRateManager sharedManager] updateRefreshRate];
     return true;
 }
 
 static BOOL isAuthenticationShowed = FALSE;
 - (void)applicationDidBecomeActive:(id)arg1 { // old app lock TODO: add face-id
   %orig;
+  [[BHTRefreshRateManager sharedManager] updateRefreshRate];
 
   if ([BHIManager appLock] && !isAuthenticationShowed) {
     UIViewController *rootController = [[self window] rootViewController];
@@ -5483,7 +5578,38 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 }
 %end
 
+%hook CADisplayLink
+- (void)setPreferredFrameRateRange:(CAFrameRateRange)range {
+    if ([BHIManager keepRefreshRate]) {
+        NSInteger maxFps = [UIScreen mainScreen].maximumFramesPerSecond;
+        if (maxFps > 60) {
+            range = CAFrameRateRangeMake((float)maxFps, (float)maxFps, (float)maxFps);
+        }
+    }
+    %orig(range);
+}
+- (void)setPreferredFramesPerSecond:(NSInteger)fps {
+    if ([BHIManager keepRefreshRate]) {
+        NSInteger maxFps = [UIScreen mainScreen].maximumFramesPerSecond;
+        if (maxFps > 60) {
+            fps = maxFps;
+        }
+    }
+    %orig(fps);
+}
+%end
 
+%hook CAAnimation
+- (void)setPreferredFrameRateRange:(CAFrameRateRange)range {
+    if ([BHIManager keepRefreshRate]) {
+        NSInteger maxFps = [UIScreen mainScreen].maximumFramesPerSecond;
+        if (maxFps > 60) {
+            range = CAFrameRateRangeMake((float)maxFps, (float)maxFps, (float)maxFps);
+        }
+    }
+    %orig(range);
+}
+%end
 
 %ctor {
     jailbreakPaths = @[
@@ -5517,6 +5643,9 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
         @"/bin/sh", @"/bin/bash",
     ];
     %init;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[BHTRefreshRateManager sharedManager] updateRefreshRate];
+    });
 }
 
 static inline BOOL isTikTokLiveAudienceRoomVC(UIViewController *vc) {

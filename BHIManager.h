@@ -53,6 +53,7 @@
 + (BOOL)copyCommentWithoutUsername;
 + (BOOL)rememberClearDisplay;
 + (BOOL)resumeVideoPlayback;
++ (BOOL)keepRefreshRate;
 + (BOOL)ghostReadReceipts;
 + (BOOL)ghostTyping;
 + (BOOL)sanitizeLinks;

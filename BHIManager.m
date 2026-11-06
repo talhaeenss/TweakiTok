@@ -205,6 +205,9 @@
 + (BOOL)resumeVideoPlayback {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"resume_video_playback"];
 }
++ (BOOL)keepRefreshRate {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"keep_refresh_rate"];
+}
 + (BOOL)ghostReadReceipts {
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"ghost_read_receipts"];
 }
