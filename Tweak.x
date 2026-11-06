@@ -1742,7 +1742,7 @@ static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
     if ([BHIManager resumeVideoPlayback]) {
         NSTimeInterval curr = [self currentPlaybackTime];
         NSTimeInterval dur = [self duration];
-        if (curr >= 2.0) {
+        if (curr >= 3.5) {
             bht_recordCurrentPlaybackPosition(curr, dur);
         }
     }
@@ -1753,13 +1753,13 @@ static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
 }
 - (void)setCurrentPlaybackTime:(NSTimeInterval)time complete:(id)complete {
     %orig(time, complete);
-    if ([BHIManager resumeVideoPlayback] && time >= 2.0) {
+    if ([BHIManager resumeVideoPlayback] && time >= 3.5) {
         bht_recordCurrentPlaybackPosition(time, [self duration]);
     }
 }
 - (void)setCurrentPlaybackTime:(NSTimeInterval)time {
     %orig(time);
-    if ([BHIManager resumeVideoPlayback] && time >= 2.0) {
+    if ([BHIManager resumeVideoPlayback] && time >= 3.5) {
         bht_recordCurrentPlaybackPosition(time, [self duration]);
     }
 }
@@ -1768,24 +1768,24 @@ static NSString *bht_formatPublishDate(NSTimeInterval timestamp) {
 %hook AWEPlayInteractionProgressManager
 - (void)updateProgressSliderWithTime:(double)time totalDuration:(double)duration {
     %orig(time, duration);
-    if ([BHIManager resumeVideoPlayback] && time >= 2.0) {
+    if ([BHIManager resumeVideoPlayback] && time >= 3.5) {
         bht_recordCurrentPlaybackPosition(time, duration);
     }
 }
 - (void)progressSliderTouchEnded:(id)arg1 isFullScreenSeekGesture:(BOOL)arg2 {
     %orig(arg1, arg2);
     if ([BHIManager resumeVideoPlayback]) {
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             double curr = 0;
             double dur = 0;
-            if (sCurrentActiveVideoEngine) {
+            if (sCurrentActiveAwemeBaseVC && [sCurrentActiveAwemeBaseVC respondsToSelector:@selector(currentPlaybackTime)]) {
+                curr = [sCurrentActiveAwemeBaseVC currentPlaybackTime];
+            }
+            if (curr <= 0 && sCurrentActiveVideoEngine) {
                 curr = [sCurrentActiveVideoEngine currentPlaybackTime];
                 dur = [sCurrentActiveVideoEngine duration];
             }
-            if (curr <= 0 && sCurrentActiveAwemeBaseVC && [sCurrentActiveAwemeBaseVC respondsToSelector:@selector(currentPlaybackTime)]) {
-                curr = [sCurrentActiveAwemeBaseVC currentPlaybackTime];
-            }
-            if (curr >= 2.0) {
+            if (curr >= 3.5) {
                 bht_recordCurrentPlaybackPosition(curr, dur);
                 sDidResumeCurrentItem = YES;
             }
@@ -1817,8 +1817,8 @@ static NSString *bht_getAwemeItemID(AWEAwemeBaseViewController *vc) {
 static void bht_savePlaybackPosition(NSString *itemID, double curr, double total) {
     if (![BHIManager resumeVideoPlayback] || !itemID || itemID.length == 0) return;
     
-    // Only save if watched at least 2.0s and not within 1.5s of the video end
-    if (curr >= 2.0 && (total <= 0 || curr < (total - 1.5))) {
+    // Only save if watched at least 3.5s and not within 1.5s of the video end
+    if (curr >= 3.5 && (total <= 0 || curr < (total - 1.5))) {
         if (!sSavedPlaybackPositions) {
             sSavedPlaybackPositions = [[NSMutableDictionary alloc] init];
         }
@@ -1855,16 +1855,22 @@ static void bht_savePlaybackPositionFromVC(AWEAwemeBaseViewController *vc) {
     if (!itemID || itemID.length == 0) return;
     
     double curr = 0;
-    if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(currentPlaybackTime)]) {
-        curr = [sCurrentActiveVideoEngine currentPlaybackTime];
-    }
-    if (curr <= 0 && [vc respondsToSelector:@selector(currentPlaybackTime)]) {
+    if ([vc respondsToSelector:@selector(currentPlaybackTime)]) {
         curr = [vc currentPlaybackTime];
+    }
+    if (curr <= 0 && [vc respondsToSelector:@selector(videoController)]) {
+        id player = [vc videoController];
+        if (player && [player respondsToSelector:@selector(currentPlaybackTime)]) {
+            curr = [player currentPlaybackTime];
+        }
     }
     
     double total = 0;
-    if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(duration)]) {
-        total = [sCurrentActiveVideoEngine duration];
+    if ([vc respondsToSelector:@selector(videoController)]) {
+        id player = [vc videoController];
+        if (player && [player respondsToSelector:@selector(totalDuration)]) {
+            total = [player totalDuration];
+        }
     }
     if (total <= 0 && [vc respondsToSelector:@selector(model)] && vc.model.video.duration) {
         total = [vc.model.video.duration doubleValue] / 1000.0;
@@ -1906,7 +1912,7 @@ static void bht_startPlaybackTracker(TTVideoEngine *engine) {
             }
             double curr = [strongEngine currentPlaybackTime];
             double dur = [strongEngine duration];
-            if (curr >= 2.0) {
+            if (curr >= 3.5) {
                 bht_recordCurrentPlaybackPosition(curr, dur);
             }
         });
@@ -1915,7 +1921,7 @@ static void bht_startPlaybackTracker(TTVideoEngine *engine) {
 }
 
 static void bht_performSingleSeek(AWEAwemeBaseViewController *vc, TTVideoEngine *engine, double targetTime) {
-    if (targetTime < 2.0) return;
+    if (targetTime < 3.5) return;
     
     id player = nil;
     if (vc && [vc respondsToSelector:@selector(videoController)]) {
@@ -1943,7 +1949,7 @@ static void bht_prepareDefaultSeekTimeForVC(AWEAwemeBaseViewController *vc) {
     NSString *itemID = bht_getAwemeItemID(vc);
     NSNumber *savedTimeNum = (itemID.length > 0 && sSavedPlaybackPositions) ? sSavedPlaybackPositions[itemID] : nil;
     double targetTime = savedTimeNum ? [savedTimeNum doubleValue] : 0.0;
-    if (targetTime >= 2.0) {
+    if (targetTime >= 3.5) {
         if ([vc respondsToSelector:@selector(setDefaultSeekToTime:)]) {
             [vc setDefaultSeekToTime:targetTime];
         }
@@ -1963,7 +1969,7 @@ static void bht_applyResumePlaybackToVC(AWEAwemeBaseViewController *vc) {
     NSNumber *savedTimeNum = sSavedPlaybackPositions ? sSavedPlaybackPositions[itemID] : nil;
     double targetTime = savedTimeNum ? [savedTimeNum doubleValue] : 0.0;
     
-    if (targetTime < 2.0) {
+    if (targetTime < 3.5) {
         if ([vc respondsToSelector:@selector(setDefaultSeekToTime:)]) {
             [vc setDefaultSeekToTime:0.0];
         }
@@ -1978,10 +1984,10 @@ static void bht_applyResumePlaybackToVC(AWEAwemeBaseViewController *vc) {
     if (sDidResumeCurrentItem) return;
     sDidResumeCurrentItem = YES;
     
-    // 2. Schedule ONE single fallback verification check at 0.35s in case defaultSeekToTime wasn't picked up
+    // 2. Schedule ONE single fallback verification check at 0.40s in case defaultSeekToTime wasn't picked up
     uint64_t currentSeq = ++sResumeSeq;
     __weak typeof(vc) weakVC = vc;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.40 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (sResumeSeq != currentSeq) return;
         AWEAwemeBaseViewController *strongVC = weakVC;
         if (!strongVC || strongVC != sCurrentActiveAwemeBaseVC) return;
@@ -1990,14 +1996,17 @@ static void bht_applyResumePlaybackToVC(AWEAwemeBaseViewController *vc) {
         if (![currID isEqualToString:itemID]) return;
         
         double curr = 0;
-        if (sCurrentActiveVideoEngine && [sCurrentActiveVideoEngine respondsToSelector:@selector(currentPlaybackTime)]) {
-            curr = [sCurrentActiveVideoEngine currentPlaybackTime];
-        }
-        if (curr <= 0 && [strongVC respondsToSelector:@selector(currentPlaybackTime)]) {
+        if ([strongVC respondsToSelector:@selector(currentPlaybackTime)]) {
             curr = [strongVC currentPlaybackTime];
         }
+        if (curr <= 0 && [strongVC respondsToSelector:@selector(videoController)]) {
+            id player = [strongVC videoController];
+            if (player && [player respondsToSelector:@selector(currentPlaybackTime)]) {
+                curr = [player currentPlaybackTime];
+            }
+        }
         
-        if (curr < 1.0) {
+        if (curr < 1.5) {
             bht_performSingleSeek(strongVC, sCurrentActiveVideoEngine, targetTime);
         }
     });
@@ -4957,9 +4966,6 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
     %orig;
 }
 - (void)containerWillDisplay {
-    if (sCurrentActiveAwemeBaseVC != self) {
-        bht_onActiveVideoChanged(self);
-    }
     if ([BHIManager resumeVideoPlayback]) {
         bht_prepareDefaultSeekTimeForVC(self);
     }
