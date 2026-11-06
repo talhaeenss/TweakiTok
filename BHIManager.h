@@ -73,4 +73,5 @@
 + (NSString *)localizedString:(NSString *)en tr:(NSString *)tr;
 + (void)showRestartNotification;
 + (void)dismissRestartNotification:(UIView *)toast;
++ (void)resetToDefaults;
 @end

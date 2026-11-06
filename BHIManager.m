@@ -577,4 +577,74 @@
     }];
 }
 
++ (void)resetToDefaults {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    
+    // Feed Defaults
+    [defaults setBool:YES forKey:@"hide_ads"];
+    [defaults setBool:YES forKey:@"download_button"];
+    [defaults setBool:NO forKey:@"share_sheet"];
+    [defaults setBool:YES forKey:@"remove_watermark"];
+    [defaults setBool:NO forKey:@"remove_elements_button"];
+    [defaults setBool:NO forKey:@"stop_play"];
+    [defaults setBool:YES forKey:@"show_porgress_bar"];
+    [defaults setBool:NO forKey:@"transparent_commnet"];
+    [defaults setBool:NO forKey:@"show_username"];
+    [defaults setBool:NO forKey:@"disable_unsensitive"];
+    [defaults setBool:NO forKey:@"disable_warnings"];
+    [defaults setBool:NO forKey:@"disable_live"];
+    [defaults setBool:NO forKey:@"skip_recommnedations"];
+    [defaults setBool:NO forKey:@"upload_region"];
+    [defaults setBool:YES forKey:@"download_story"];
+    [defaults setBool:YES forKey:@"live_record_button"];
+    [defaults setBool:YES forKey:@"download_cover_image"];
+    [defaults setBool:NO forKey:@"always_show_publish_date"];
+    [defaults setBool:NO forKey:@"copy_comment_without_username"];
+    [defaults setBool:NO forKey:@"remember_clear_display"];
+    [defaults setBool:NO forKey:@"resume_video_playback"];
+    [defaults setBool:NO forKey:@"keep_refresh_rate"];
+    
+    // Profile Defaults
+    [defaults setBool:YES forKey:@"save_profile"];
+    [defaults setBool:YES forKey:@"copy_profile_information"];
+    [defaults setBool:NO forKey:@"video_like_count"];
+    [defaults setBool:NO forKey:@"video_upload_date"];
+    [defaults setBool:YES forKey:@"follow_status_badge"];
+    
+    // Confirm Defaults
+    [defaults setBool:NO forKey:@"like_confirmation"];
+    [defaults setBool:NO forKey:@"like_comment_confirmation"];
+    [defaults setBool:NO forKey:@"dislike_comment_confirmation"];
+    [defaults setBool:NO forKey:@"follow_confirmation"];
+    
+    // Other Defaults
+    [defaults setBool:NO forKey:@"open_in_safari"];
+    [defaults setBool:YES forKey:@"upload_hd"];
+    [defaults setBool:YES forKey:@"extended_bio"];
+    [defaults setBool:YES forKey:@"extendedComment"];
+    [defaults setBool:NO forKey:@"app_lock"];
+    [defaults setBool:NO forKey:@"fake_changes"];
+    [defaults setBool:NO forKey:@"fake_verified"];
+    [defaults removeObjectForKey:@"following_count"];
+    [defaults removeObjectForKey:@"follower_count"];
+    
+    // Privacy Defaults
+    [defaults setBool:NO forKey:@"ghost_read_receipts"];
+    [defaults setBool:NO forKey:@"ghost_typing"];
+    [defaults setBool:YES forKey:@"sanitize_links"];
+    [defaults setBool:YES forKey:@"disable_screenshot_detection"];
+    [defaults setBool:NO forKey:@"disable_telemetry"];
+    
+    // Playback Speed Defaults
+    [defaults setBool:NO forKey:@"playback_en"];
+    [defaults setObject:@(1.0) forKey:@"playback_speed"];
+    
+    // Offline Videos / Labs Defaults
+    [defaults removeObjectForKey:@"offline_videos_limit"];
+    [defaults removeObjectForKey:@"ab_overrides"];
+    
+    [defaults synchronize];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokRefreshRateDidChangeNotification" object:nil];
+}
+
 @end

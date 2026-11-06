@@ -85,7 +85,7 @@
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 12;
+    return 13;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -115,6 +115,8 @@
             return tr ? @"Deneysel (Labs)" : @"Labs";
         case 11:
             return tr ? @"Dil (Language)" : @"Language (Dil)";
+        case 12:
+            return tr ? @"Varsayılana Sıfırla" : @"Reset to Defaults";
         default:
             break;
     }
@@ -135,6 +137,7 @@
         case 9: return 1;
         case 10: return 1;
         case 11: return 1;
+        case 12: return 1;
         default: return 0;
     }
 }
@@ -551,6 +554,33 @@
                 break;
         }
     }
+    else if (indexPath.section == 12) {
+        switch (indexPath.row) {
+            case 0: {
+                UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
+                cell.textLabel.text = tr ? @"Ayarları Sıfırla" : @"Reset Settings";
+                cell.detailTextLabel.text = tr ? @"Tüm ayarları ilk yükleme varsayılanlarına döndürür" : @"Reset all settings back to factory defaults";
+                cell.detailTextLabel.textColor = [UIColor systemGrayColor];
+                cell.detailTextLabel.numberOfLines = 0;
+                
+                UIButton *resetBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+                [resetBtn setTitle:tr ? @"Sıfırla" : @"Reset" forState:UIControlStateNormal];
+                [resetBtn setTitleColor:[UIColor systemRedColor] forState:UIControlStateNormal];
+                resetBtn.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+                resetBtn.backgroundColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.12];
+                resetBtn.layer.cornerRadius = 14;
+                resetBtn.layer.masksToBounds = YES;
+                resetBtn.contentEdgeInsets = UIEdgeInsetsMake(6, 14, 6, 14);
+                [resetBtn sizeToFit];
+                [resetBtn addTarget:self action:@selector(resetSettingsButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+                cell.accessoryView = resetBtn;
+                cell.selectionStyle = UITableViewCellSelectionStyleNone;
+                return cell;
+            }
+            default:
+                break;
+        }
+    }
     return [UITableViewCell new];
 }
 
@@ -627,6 +657,25 @@
         }
         [self presentViewController:alert animated:YES completion:nil];
     }
+    else if (indexPath.section == 12 && indexPath.row == 0) {
+        [self resetSettingsButtonTapped:nil];
+    }
+}
+
+- (void)resetSettingsButtonTapped:(id)sender {
+    BOOL tr = [BHIManager isTurkish];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:tr ? @"Ayarları Sıfırla" : @"Reset Settings"
+                                                                   message:tr ? @"Tüm TweakiTok ayarları varsayılan değerlerine döndürülecek. Emin misiniz?" : @"All TweakiTok settings will be restored to their default values. Are you sure?"
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    
+    [alert addAction:[UIAlertAction actionWithTitle:tr ? @"İptal" : @"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:tr ? @"Sıfırla" : @"Reset" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+        [BHIManager resetToDefaults];
+        [self.staticTable reloadData];
+        [BHIManager showRestartNotification];
+    }]];
+    
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)languageSegmentChanged:(UISegmentedControl *)sender {
