@@ -492,9 +492,14 @@
 - (double)currentPlaybackTime;
 - (double)totalDuration;
 - (void)seekToTime:(double)time completion:(void(^)(BOOL))completion;
+- (void)seekToTime:(double)time completion:(id)completion renderCompletion:(id)renderCompletion;
 - (void)seekToPercent:(double)percent completeBlock:(void(^)(BOOL))block;
 - (void)updatePlayerIfNeeded;
 - (void)setSpeed:(CGFloat)speed;
+@end
+
+@interface NSObject (BHTikTokPlayerSeeking)
+- (void)seekToTime:(double)time completion:(id)completion renderCompletion:(id)renderCompletion;
 @end
 
 @interface TTKSearchEntranceButton: UIButton

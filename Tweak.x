@@ -13,6 +13,14 @@ static NSMutableDictionary<NSString *, NSNumber *> *sSavedPlaybackPositions = ni
 static NSString *sLastResumedItemID = nil;
 static uint64_t sResumeSeq = 0;
 
+static NSString *bht_getAwemeItemID(AWEAwemeBaseViewController *vc);
+static void bht_savePlaybackPositionFromVC(AWEAwemeBaseViewController *vc);
+static void bht_seekVCPlayer(AWEAwemeBaseViewController *vc, double targetTime);
+static void bht_prepareDefaultSeekTimeForVC(AWEAwemeBaseViewController *vc);
+static void bht_applyResumePlaybackToVC(AWEAwemeBaseViewController *vc);
+static void bht_applySeekIfPending(AWEAwemeBaseViewController *vc);
+static void bht_checkAndResumeVideoEngine(TTVideoEngine *engine, AWEAwemeBaseViewController *vc);
+
 @implementation BHTMenuButton
 - (void)setHighlighted:(BOOL)highlighted {
     [super setHighlighted:NO];
