@@ -67,6 +67,8 @@
 + (void)saveMedia:(id)item fileExtension:(id)fileExtension;
 + (NSString *)tiktokLanguage;
 + (BOOL)isTikTokLanguageTurkish;
++ (void)syncWithTikTokLanguageIfNeeded;
++ (void)handleTikTokLanguageDidChange;
 + (NSString *)currentLanguage;
 + (void)setLanguage:(NSString *)lang;
 + (BOOL)isTurkish;

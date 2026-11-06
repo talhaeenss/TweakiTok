@@ -222,8 +222,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"remember_clear_display"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"resume_video_playback"];
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"keep_refresh_rate"];
-        NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
-        [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
+        [BHIManager syncWithTikTokLanguageIfNeeded];
     }
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"sanitize_links"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"sanitize_links"];
@@ -249,10 +248,7 @@ static void showLikeConfirmation(void (^okHandler)(void)) {
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"keep_refresh_rate"]) {
         [[NSUserDefaults standardUserDefaults] setBool:false forKey:@"keep_refresh_rate"];
     }
-    if (![[NSUserDefaults standardUserDefaults] objectForKey:@"tweakiktok_language"]) {
-        NSString *initialLang = [BHIManager isTikTokLanguageTurkish] ? @"tr" : @"en";
-        [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
-    }
+    [BHIManager syncWithTikTokLanguageIfNeeded];
     if (![[NSUserDefaults standardUserDefaults] objectForKey:@"download_cover_image"]) {
         [[NSUserDefaults standardUserDefaults] setBool:true forKey:@"download_cover_image"];
     }
@@ -940,6 +936,7 @@ static BOOL isAuthenticationShowed = FALSE;
 
 - (NSString *)sectionHeaderTitle {
     if ([self.sectionIdentifier isEqualToString:@"tweakitok_mod_section"]) {
+        [BHIManager syncWithTikTokLanguageIfNeeded];
         BOOL tr = [BHIManager isTurkish];
         return tr ? @"TikTok Mod Ayarları" : @"TikTok Mod Settings";
     }
@@ -948,12 +945,13 @@ static BOOL isAuthenticationShowed = FALSE;
 
 - (NSArray *)modelsArray {
     if ([self.sectionIdentifier isEqualToString:@"tweakitok_mod_section"]) {
+        [BHIManager syncWithTikTokLanguageIfNeeded];
+        BOOL tr = [BHIManager isTurkish];
+        NSString *title = tr ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
         if (!self.bhtiktokCell) {
             TTKSettingsBaseCellPlugin *BHTikTokSettingsPluginCell = [[%c(TTKSettingsBaseCellPlugin) alloc] initWithPluginContext:self.context];
 
             AWESettingItemModel *BHTikTokSettingsItemModel = [[%c(AWESettingItemModel) alloc] initWithIdentifier:@"bhtiktok_settings"];
-            BOOL tr = [BHIManager isTurkish];
-            NSString *title = tr ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
             [BHTikTokSettingsItemModel setTitle:title];
             [BHTikTokSettingsItemModel setDetail:title];
             [BHTikTokSettingsItemModel setIconImage:[UIImage systemImageNamed:@"gear"]];
@@ -961,6 +959,12 @@ static BOOL isAuthenticationShowed = FALSE;
 
             [BHTikTokSettingsPluginCell setItemModel:BHTikTokSettingsItemModel];
             self.bhtiktokCell = BHTikTokSettingsPluginCell;
+        } else {
+            AWESettingItemModel *itemModel = [self.bhtiktokCell itemModel];
+            if (itemModel) {
+                [itemModel setTitle:title];
+                [itemModel setDetail:title];
+            }
         }
         return @[self.bhtiktokCell];
     }
@@ -5617,6 +5621,28 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
 }
 %end
 
+%hook TTKLanguageViewController
+- (void)viewWillDisappear:(BOOL)animated {
+    %orig;
+    [BHIManager handleTikTokLanguageDidChange];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig;
+    [BHIManager handleTikTokLanguageDidChange];
+}
+%end
+
+%hook AWEChooseLanguageViewController
+- (void)viewWillDisappear:(BOOL)animated {
+    %orig;
+    [BHIManager handleTikTokLanguageDidChange];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    %orig;
+    [BHIManager handleTikTokLanguageDidChange];
+}
+%end
+
 %ctor {
     jailbreakPaths = @[
         @"/Applications/Cydia.app", @"/Applications/blackra1n.app",
@@ -5651,7 +5677,20 @@ static NSString *cleanCommentTextIfPrefixedWithUsername(NSString *text) {
     %init;
     dispatch_async(dispatch_get_main_queue(), ^{
         [[BHTRefreshRateManager sharedManager] updateRefreshRate];
+        [BHIManager syncWithTikTokLanguageIfNeeded];
     });
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"ALPLocalizationsLanguageChangedNotification" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+        [BHIManager handleTikTokLanguageDidChange];
+    }];
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"localizationsLanguageChangedNotificationName" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+        [BHIManager handleTikTokLanguageDidChange];
+    }];
+    [[NSNotificationCenter defaultCenter] addObserverForName:@"AWEContentLanguageDidChangedNotification" object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+        [BHIManager handleTikTokLanguageDidChange];
+    }];
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+        [BHIManager syncWithTikTokLanguageIfNeeded];
+    }];
 }
 
 static inline BOOL isTikTokLiveAudienceRoomVC(UIViewController *vc) {

@@ -58,6 +58,23 @@
                                              selector:@selector(regionSelected:)
                                                  name:@"RegionSelectedNotification"
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(onTweakiTokLanguageChanged:)
+                                                 name:@"TweakiTokLanguageDidChangeNotification"
+                                               object:nil];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)onTweakiTokLanguageChanged:(NSNotification *)note {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        BOOL tr = [BHIManager isTurkish];
+        self.title = tr ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
+        self.navigationItem.rightBarButtonItem.title = tr ? @"Kapat" : @"Close";
+        [self.staticTable reloadData];
+    });
 }
 
 - (void)dismissSettings {
@@ -66,6 +83,10 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [BHIManager syncWithTikTokLanguageIfNeeded];
+    BOOL tr = [BHIManager isTurkish];
+    self.title = tr ? @"TweakiTok Ayarları" : @"TweakiTok Settings";
+    self.navigationItem.rightBarButtonItem.title = tr ? @"Kapat" : @"Close";
     [self.staticTable reloadData];
     if (@available(iOS 13.0, *)) {
         UINavigationBarAppearance *appearance = [[UINavigationBarAppearance alloc] init];

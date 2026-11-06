@@ -435,18 +435,110 @@
     return [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"ab_overrides"];
 }
 + (NSString *)tiktokLanguage {
-    NSString *appLang = [[NSUserDefaults standardUserDefaults] stringForKey:@"current_i18n_language"];
+    // 1. Check TikTok's ALPLocalizationsManager at runtime if available
+    Class alpCls = NSClassFromString(@"ALPLocalizationsManager");
+    if (alpCls) {
+        if ([alpCls respondsToSelector:@selector(currentLanguage)]) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            id langObj = [alpCls performSelector:@selector(currentLanguage)];
+            #pragma clang diagnostic pop
+            if ([langObj isKindOfClass:[NSString class]] && [(NSString *)langObj length] >= 2) {
+                return [(NSString *)langObj lowercaseString];
+            } else if (langObj && [langObj respondsToSelector:@selector(languageCode)]) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                id code = [langObj performSelector:@selector(languageCode)];
+                #pragma clang diagnostic pop
+                if ([code isKindOfClass:[NSString class]] && [(NSString *)code length] >= 2) {
+                    return [(NSString *)code lowercaseString];
+                }
+            } else if (langObj && [langObj respondsToSelector:@selector(locale)]) {
+                #pragma clang diagnostic push
+                #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+                id loc = [langObj performSelector:@selector(locale)];
+                #pragma clang diagnostic pop
+                if ([loc isKindOfClass:[NSString class]] && [(NSString *)loc length] >= 2) {
+                    return [(NSString *)loc lowercaseString];
+                }
+            }
+        }
+    }
+
+    Class aweLangCls = NSClassFromString(@"AWELanguageManager");
+    if (aweLangCls) {
+        if ([aweLangCls respondsToSelector:@selector(currentLanguageCode)]) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            id code = [aweLangCls performSelector:@selector(currentLanguageCode)];
+            #pragma clang diagnostic pop
+            if ([code isKindOfClass:[NSString class]] && [(NSString *)code length] >= 2) {
+                return [(NSString *)code lowercaseString];
+            }
+        }
+        if ([aweLangCls respondsToSelector:@selector(currentLanguage)]) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            id code = [aweLangCls performSelector:@selector(currentLanguage)];
+            #pragma clang diagnostic pop
+            if ([code isKindOfClass:[NSString class]] && [(NSString *)code length] >= 2) {
+                return [(NSString *)code lowercaseString];
+            }
+        }
+    }
+
+    // 2. TikTok ALPLocalizationsManager keys in NSUserDefaults
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *alpLocale = [defaults stringForKey:@"ALPLocalizationsManagerPreferedLocaleKey"];
+    if (alpLocale && alpLocale.length >= 2) {
+        return [alpLocale lowercaseString];
+    }
+    NSString *alpLang = [defaults stringForKey:@"ALPLocalizationsManagerPreferedLanguageKey"];
+    if (alpLang && alpLang.length >= 2) {
+        return [alpLang lowercaseString];
+    }
+    
+    // 3. AppleLanguages array (standard iOS per-app language setting)
+    id appleLangs = [defaults objectForKey:@"AppleLanguages"];
+    if ([appleLangs isKindOfClass:[NSArray class]] && [(NSArray *)appleLangs count] > 0) {
+        NSString *first = [(NSArray *)appleLangs firstObject];
+        if ([first isKindOfClass:[NSString class]] && first.length >= 2) {
+            return [first lowercaseString];
+        }
+    }
+
+    // 4. NSBundle mainBundle preferred localizations (returns bundle's active language)
+    NSArray *bundleLocales = [[NSBundle mainBundle] preferredLocalizations];
+    if (bundleLocales.count > 0) {
+        NSString *first = [bundleLocales firstObject];
+        if (first && first.length >= 2) {
+            return [first lowercaseString];
+        }
+    }
+
+    // 5. Other TikTok / ByteDance keys
+    NSString *fGlobal = [defaults stringForKey:@"f_global_app_language"];
+    if (fGlobal && fGlobal.length >= 2) {
+        return [fGlobal lowercaseString];
+    }
+    NSString *fGlobal2 = [defaults stringForKey:@"f_global_language"];
+    if (fGlobal2 && fGlobal2.length >= 2) {
+        return [fGlobal2 lowercaseString];
+    }
+    NSString *appLang = [defaults stringForKey:@"current_i18n_language"];
     if (appLang && appLang.length >= 2) {
         return [appLang lowercaseString];
     }
-    NSString *appLang2 = [[NSUserDefaults standardUserDefaults] stringForKey:@"app_language"];
+    NSString *appLang2 = [defaults stringForKey:@"app_language"];
     if (appLang2 && appLang2.length >= 2) {
         return [appLang2 lowercaseString];
     }
-    NSString *appLang3 = [[NSUserDefaults standardUserDefaults] stringForKey:@"kTYLanguageKey"];
+    NSString *appLang3 = [defaults stringForKey:@"kTYLanguageKey"];
     if (appLang3 && appLang3.length >= 2) {
         return [appLang3 lowercaseString];
     }
+
+    // 6. Device system preferred languages fallback
     NSArray *languages = [NSLocale preferredLanguages];
     if (languages.count > 0) {
         return [[languages firstObject] lowercaseString];
@@ -459,13 +551,45 @@
     return [lang hasPrefix:@"tr"];
 }
 
++ (void)syncWithTikTokLanguageIfNeeded {
+    NSString *currentTTLang = [self tiktokLanguage];
+    NSString *lastTTLang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_last_tiktok_language"];
+    
+    if (!lastTTLang || lastTTLang.length == 0) {
+        // Initial setup or after reset: adopt TikTok's active language
+        [[NSUserDefaults standardUserDefaults] setObject:currentTTLang forKey:@"tweakiktok_last_tiktok_language"];
+        NSString *initialLang = [self isTikTokLanguageTurkish] ? @"tr" : @"en";
+        [[NSUserDefaults standardUserDefaults] setObject:initialLang forKey:@"tweakiktok_language"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        return;
+    }
+    
+    // If TikTok's language has changed in TikTok settings
+    if (![currentTTLang isEqualToString:lastTTLang]) {
+        [[NSUserDefaults standardUserDefaults] setObject:currentTTLang forKey:@"tweakiktok_last_tiktok_language"];
+        NSString *newLang = [self isTikTokLanguageTurkish] ? @"tr" : @"en";
+        [[NSUserDefaults standardUserDefaults] setObject:newLang forKey:@"tweakiktok_language"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokLanguageDidChangeNotification" object:newLang];
+    }
+}
+
++ (void)handleTikTokLanguageDidChange {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString *currentTTLang = [self tiktokLanguage];
+        [[NSUserDefaults standardUserDefaults] setObject:currentTTLang forKey:@"tweakiktok_last_tiktok_language"];
+        NSString *newLang = [self isTikTokLanguageTurkish] ? @"tr" : @"en";
+        [[NSUserDefaults standardUserDefaults] setObject:newLang forKey:@"tweakiktok_language"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokLanguageDidChangeNotification" object:newLang];
+    });
+}
+
 + (NSString *)currentLanguage {
-    BOOL isCustomized = [[NSUserDefaults standardUserDefaults] boolForKey:@"tweakiktok_language_customized"];
-    if (isCustomized) {
-        NSString *lang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_language"];
-        if (lang && lang.length > 0) {
-            return lang;
-        }
+    [self syncWithTikTokLanguageIfNeeded];
+    NSString *lang = [[NSUserDefaults standardUserDefaults] stringForKey:@"tweakiktok_language"];
+    if (lang && lang.length > 0) {
+        return lang;
     }
     return [self isTikTokLanguageTurkish] ? @"tr" : @"en";
 }
@@ -473,7 +597,12 @@
 + (void)setLanguage:(NSString *)lang {
     if (!lang || lang.length == 0) lang = @"en";
     [[NSUserDefaults standardUserDefaults] setObject:lang forKey:@"tweakiktok_language"];
-    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"tweakiktok_language_customized"];
+    // Keep last_tiktok_language in sync so subsequent sync checks know
+    // TikTok language has NOT changed since the user chose this language in TweakiTok
+    NSString *currentTTLang = [self tiktokLanguage];
+    if (currentTTLang && currentTTLang.length > 0) {
+        [[NSUserDefaults standardUserDefaults] setObject:currentTTLang forKey:@"tweakiktok_last_tiktok_language"];
+    }
     [[NSUserDefaults standardUserDefaults] synchronize];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokLanguageDidChangeNotification" object:lang];
 }
@@ -643,7 +772,13 @@
     [defaults removeObjectForKey:@"offline_videos_limit"];
     [defaults removeObjectForKey:@"ab_overrides"];
     
+    // Language Defaults
+    [defaults removeObjectForKey:@"tweakiktok_language"];
+    [defaults removeObjectForKey:@"tweakiktok_last_tiktok_language"];
+    [defaults removeObjectForKey:@"tweakiktok_language_customized"];
+    
     [defaults synchronize];
+    [self syncWithTikTokLanguageIfNeeded];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"TweakiTokRefreshRateDidChangeNotification" object:nil];
 }
 
