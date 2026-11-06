@@ -256,6 +256,20 @@
 @property(nonatomic, strong, readwrite) AWEAwemeModel *model;
 @property (nonatomic, copy, readwrite) NSString *referString;
 @property (nonatomic) id interactionController;
+@property (nonatomic, assign) double defaultSeekToTime;
+- (void)setDefaultSeekToTime:(double)time;
+- (double)defaultSeekToTime;
+- (double)currentPlaybackTime;
+- (id)videoController;
+- (void)play;
+- (void)pause;
+- (void)stop;
+- (void)containerWillDisplay;
+- (void)containerDidFullyDisplayWithReason:(NSInteger)arg1;
+- (void)containerDidEndDisplaying;
+- (void)prepareForDisplay;
+- (void)configureWithModel:(id)model;
+- (void)playerWillLoopPlaying:(id)arg1;
 - (void)setPureMode:(BOOL)pure animated:(BOOL)animated;
 - (void)setPureMode:(BOOL)pure animation:(BOOL)animation;
 @end
@@ -292,6 +306,8 @@
 @interface AWEFeedCellViewController: AWEAwemeBaseViewController;
 @property (nonatomic, strong, readwrite) AWEAwemeModel *model;
 - (NSInteger)indexPath;
+- (void)playerDidReadyForDisplay:(id)arg1;
+- (void)playerWillLoopPlaying:(id)arg1;
 @end
 
 @interface AWEAwemeDetailCellViewController: AWEAwemeBaseViewController
