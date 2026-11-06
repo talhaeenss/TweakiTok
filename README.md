@@ -27,7 +27,7 @@ An awesome, modern TikTok tweak for iOS.
 - **Always Show Publish Date**: Displays video publish date next to username on all feeds.
 - **Copy Comment Without Username**: Copies comment text without the author's handle.
 - **Remember Clear Display**: Keeps clear display mode active when scrolling across videos.
-- **Resume Videos After Scrolling**: Resumes playback from where you left off when returning to a previously watched video.
+- **Resume Videos After Scrolling**: Resumes playback from where you left off when returning to a previous video.
 - **Video Metadata**: Shows upload date and like count on profile grids.
 - **HD Uploads**: Forces video uploads in high definition.
 - **Extended Text Limits**: Removes character limits for bio and comments.
